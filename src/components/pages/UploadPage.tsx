@@ -29,9 +29,9 @@ const PIPELINE_STAGES: PipelineStage[] = [
   { id: 'routing',        label: 'Auto-Routing to Verification',  description: 'Routing to Verification Officer Queue based on rules',icon: UserCheck,  duration: 400 },
 ];
 
-export const UploadPage: React.FC<{ onNavigateToVerification?: () => void }> = ({ onNavigateToVerification }) => {
+export const UploadPage: React.FC<{ onNavigateToVerification?: (recordId?: string) => void }> = ({ onNavigateToVerification }) => {
   const { user, permissions } = useAuth();
-  const { processDocumentUpload } = useLandRecords();
+  const { processDocumentUpload, setActiveVerificationRecordId, activeVerificationRecordId } = useLandRecords();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isDragging, setIsDragging] = useState(false);
@@ -98,25 +98,47 @@ export const UploadPage: React.FC<{ onNavigateToVerification?: () => void }> = (
     setCurrentStep('processing');
     setCompletedStages([]);
     setActiveStageIdx(0);
+    setErrorMessage(null);
+    setProcessedResult(null);
 
-    // Run stages visually
-    const processPromise = processDocumentUpload(
-      uploadedFile,
-      meta,
-      user?.name || 'Land Record Officer',
-      user?.role || 'LAND_RECORD_OFFICER'
-    );
+    try {
+      const processPromise = processDocumentUpload(
+        uploadedFile,
+        meta,
+        user?.name || 'Land Record Officer',
+        user?.role || 'LAND_RECORD_OFFICER'
+      );
 
-    for (let i = 0; i < PIPELINE_STAGES.length; i++) {
-      setActiveStageIdx(i);
-      await new Promise(r => setTimeout(r, PIPELINE_STAGES[i].duration));
-      setCompletedStages(prev => [...prev, PIPELINE_STAGES[i].id]);
+      for (let i = 0; i < PIPELINE_STAGES.length; i++) {
+        setActiveStageIdx(i);
+        await new Promise(r => setTimeout(r, PIPELINE_STAGES[i].duration));
+        setCompletedStages(prev => [...prev, PIPELINE_STAGES[i].id]);
+      }
+
+      const result = await processPromise;
+      if (!result || !result.ocrResult || !result.ocrResult.extractedFields || result.ocrResult.extractedFields.length === 0) {
+        throw new Error("Unable to extract data from this document. Please upload a clearer image and try again.");
+      }
+      setProcessedResult(result);
+      setCurrentStep('done');
+      setActiveStageIdx(-1);
+    } catch (err: any) {
+      console.error('OCR Processing Error:', err);
+      setErrorMessage(err?.message || "Unable to extract data from this document. Please upload a clearer image and try again.");
+      setCurrentStep('uploaded');
+      setActiveStageIdx(-1);
     }
+  };
 
-    const result = await processPromise;
-    setProcessedResult(result);
-    setCurrentStep('done');
-    setActiveStageIdx(-1);
+  const handleOpenVerificationDesk = () => {
+    const targetId = processedResult?.record?.id || activeVerificationRecordId || undefined;
+    console.log('[OCR Pipeline] Opening Verification Desk: verificationRequestId =', targetId);
+    if (targetId) {
+      setActiveVerificationRecordId(targetId);
+    }
+    if (onNavigateToVerification) {
+      onNavigateToVerification(targetId);
+    }
   };
 
   const reset = () => {
@@ -321,7 +343,7 @@ export const UploadPage: React.FC<{ onNavigateToVerification?: () => void }> = (
                 <div className="flex gap-2 pt-1">
                   {onNavigateToVerification && (
                     <button
-                      onClick={onNavigateToVerification}
+                      onClick={handleOpenVerificationDesk}
                       className="gov-btn-primary py-2 px-4 text-xs font-bold flex items-center gap-1.5 flex-1 justify-center"
                     >
                       <UserCheck className="w-4 h-4" /> Open Verification Desk

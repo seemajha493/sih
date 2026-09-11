@@ -35,15 +35,15 @@ interface NavTabItem {
   badge?: number;
 }
 const OFFICER_TABS: NavTabItem[] = [
-  { id: 'dashboard',    label: 'Dashboard',    roles: ['ADMIN','LAND_RECORD_OFFICER','VERIFICATION_OFFICER','PUBLIC_USER'] },
-  { id: 'records',      label: 'Land Records', roles: ['ADMIN','LAND_RECORD_OFFICER','VERIFICATION_OFFICER','PUBLIC_USER'] },
+  { id: 'dashboard',    label: 'Dashboard',    roles: ['LAND_RECORD_OFFICER'] },
+  { id: 'records',      label: 'Land Records', roles: ['LAND_RECORD_OFFICER','VERIFICATION_OFFICER','PUBLIC_USER'] },
   { id: 'upload',       label: 'Upload & Process', roles: ['ADMIN','LAND_RECORD_OFFICER'] },
   { id: 'verification', label: 'Verification', roles: ['ADMIN','LAND_RECORD_OFFICER','VERIFICATION_OFFICER'], badge: 8 },
   { id: 'gis',          label: 'GIS Map',      roles: ['ADMIN','LAND_RECORD_OFFICER','VERIFICATION_OFFICER','PUBLIC_USER'] },
-  { id: 'analytics',    label: 'Analytics',    roles: ['ADMIN','LAND_RECORD_OFFICER','VERIFICATION_OFFICER'] },
-  { id: 'audit',        label: 'Audit Logs',   roles: ['ADMIN','LAND_RECORD_OFFICER','VERIFICATION_OFFICER'] },
+  { id: 'analytics',    label: 'Analytics',    roles: ['LAND_RECORD_OFFICER','VERIFICATION_OFFICER'] },
+  { id: 'audit',        label: 'Audit Logs',   roles: ['LAND_RECORD_OFFICER','VERIFICATION_OFFICER'] },
   { id: 'users',        label: 'Users',        roles: ['ADMIN'] },
-  { id: 'settings',     label: 'Settings',     roles: ['ADMIN','LAND_RECORD_OFFICER','VERIFICATION_OFFICER','PUBLIC_USER'] },
+  { id: 'settings',     label: 'Settings',     roles: ['ADMIN','LAND_RECORD_OFFICER','PUBLIC_USER'] },
 ];
 
 const ROLE_LABELS: Record<UserRole, string> = {

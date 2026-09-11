@@ -9,7 +9,7 @@ import type { UserRole } from '../../types/auth';
 import type { NavigationTab } from './Sidebar';
 import {
   LayoutDashboard, FileText, Upload, CheckSquare, Map,
-  BarChart3, ShieldAlert, Users, Settings, Home, LogOut,
+  BarChart3, Users, Settings, Home, LogOut,
   X, Clock, Search
 } from 'lucide-react';
 
@@ -24,11 +24,7 @@ const SIDEBAR_CONFIG: Record<UserRole, { title: string; items: SidebarItem[] }> 
   ADMIN: {
     title: 'Administrator Portal',
     items: [
-      { id: 'dashboard',    label: 'System Overview',       icon: LayoutDashboard },
-      { id: 'records',      label: 'Land Records',           icon: FileText },
       { id: 'users',        label: 'User Management',        icon: Users },
-      { id: 'audit',        label: 'Audit Logs',             icon: ShieldAlert },
-      { id: 'analytics',    label: 'Reports & Analytics',    icon: BarChart3 },
       { id: 'settings',     label: 'Portal Configuration',   icon: Settings },
     ]
   },
@@ -47,24 +43,18 @@ const SIDEBAR_CONFIG: Record<UserRole, { title: string; items: SidebarItem[] }> 
   VERIFICATION_OFFICER: {
     title: 'Verification Officer',
     items: [
-      { id: 'dashboard',    label: 'Dashboard',              icon: LayoutDashboard },
       { id: 'verification', label: 'Pending Verifications',  icon: CheckSquare, badge: 12 },
       { id: 'records',      label: 'Land Records',           icon: FileText },
       { id: 'gis',          label: 'GIS / Boundary Validation', icon: Map },
       { id: 'audit',        label: 'Verification History',   icon: Clock },
       { id: 'analytics',    label: 'Reports',                icon: BarChart3 },
-      { id: 'settings',     label: 'Settings',               icon: Settings },
     ]
   },
   PUBLIC_USER: {
     title: 'Citizen Dashboard',
     items: [
-      { id: 'dashboard',    label: 'My Dashboard',           icon: LayoutDashboard },
       { id: 'records',      label: 'Find Land Record',       icon: Search },
-      { id: 'my-records' as any, label: 'My Land Records',   icon: FileText },
       { id: 'gis',          label: 'My Land Map',            icon: Map },
-      { id: 'requests' as any,   label: 'My Requests',       icon: CheckSquare },
-      { id: 'documents' as any,  label: 'My Documents',      icon: FileText },
       { id: 'settings',     label: 'My Profile',             icon: Settings },
     ]
   }

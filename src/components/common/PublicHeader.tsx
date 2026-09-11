@@ -161,16 +161,6 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
               Land Records
             </button>
             <button
-              onClick={() => onNavigatePage('gis')}
-              className={`px-4 py-2 rounded transition whitespace-nowrap ${
-                activePage === 'gis'
-                  ? 'bg-[#064E3B] text-amber-300 font-extrabold border-b-2 border-amber-400 shadow-inner'
-                  : 'hover:bg-[#064E3B] hover:text-white'
-              }`}
-            >
-              GIS Map
-            </button>
-            <button
               onClick={() => onNavigatePage('services')}
               className={`px-4 py-2 rounded transition whitespace-nowrap ${
                 activePage === 'services'

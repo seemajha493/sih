@@ -14,6 +14,8 @@ interface LandRecordContextType {
   isDatabaseLoading: boolean;
   dbError: string | null;
   latestProcessedResult: OcrProcessingResult | null;
+  activeVerificationRecordId: string | null;
+  setActiveVerificationRecordId: (id: string | null) => void;
   processDocumentUpload: (
     file: File,
     metadata: DocumentMetadata,
@@ -69,6 +71,26 @@ export const LandRecordProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [isDatabaseLoading, setIsDatabaseLoading] = useState(true);
   const [dbError, setDbError] = useState<string | null>(null);
   const [latestProcessedResult, setLatestProcessedResult] = useState<OcrProcessingResult | null>(null);
+  const [activeVerificationRecordId, setActiveVerificationRecordIdState] = useState<string | null>(() => {
+    try {
+      return sessionStorage.getItem('activeVerificationRecordId');
+    } catch {
+      return null;
+    }
+  });
+
+  const setActiveVerificationRecordId = (id: string | null) => {
+    setActiveVerificationRecordIdState(id);
+    try {
+      if (id) {
+        sessionStorage.setItem('activeVerificationRecordId', id);
+      } else {
+        sessionStorage.removeItem('activeVerificationRecordId');
+      }
+    } catch (e) {
+      console.warn('Session storage write warning:', e);
+    }
+  };
 
   // Initialize data source directly from IndexedDB database (`BhumiTraceDB`)
   useEffect(() => {
@@ -154,6 +176,7 @@ export const LandRecordProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       // 1. OCR Extraction
       const ocrResult = await OcrService.processDocument(file, metadata);
       setLatestProcessedResult(ocrResult);
+      console.log('[OCR Pipeline] Document uploaded: documentId =', ocrResult.documentId);
 
       // 2. Validation & Anomaly Engine
       const validationOutput = ValidationEngine.validate(ocrResult, records);
@@ -167,6 +190,9 @@ export const LandRecordProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
       // 4. PERSIST TO INDEXEDDB DATABASE (`land_records` table)
       await DatabaseService.saveLandRecord(newRecord);
+      setActiveVerificationRecordId(newRecord.id);
+
+      console.log('[OCR Pipeline] Verification request created: verificationRequestId =', newRecord.id);
 
       // 5. Insert Audit Entry in `audit_logs` table
       await addAuditLogEntry(
@@ -289,14 +315,17 @@ export const LandRecordProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   ): Promise<LandRecord> => {
     setDbError(null);
     try {
-      // Execute database transaction
+      const existingRecord = records.find(r => r.id === recordId);
       const updatedRecord = await DatabaseService.approveLandRecord(
         recordId,
         userOfficerId(officerName),
         officerName,
         officerRole,
-        remarks
+        remarks,
+        existingRecord
       );
+
+      console.log('[Verification Pipeline] Record verified & published: recordId =', recordId, 'status = VERIFIED');
 
       // Re-query database to update single source of truth
       const refreshedRecords = await DatabaseService.getAllLandRecords();
@@ -325,14 +354,17 @@ export const LandRecordProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   ): Promise<LandRecord> => {
     setDbError(null);
     try {
-      // Execute database transaction
+      const existingRecord = records.find(r => r.id === recordId);
       const updatedRecord = await DatabaseService.rejectLandRecord(
         recordId,
         userOfficerId(officerName),
         officerName,
         officerRole,
-        reason
+        reason,
+        existingRecord
       );
+
+      console.log('[Verification Pipeline] Record rejected: recordId =', recordId, 'status = REJECTED');
 
       // Re-query database
       const refreshedRecords = await DatabaseService.getAllLandRecords();
@@ -407,6 +439,8 @@ export const LandRecordProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         isDatabaseLoading,
         dbError,
         latestProcessedResult,
+        activeVerificationRecordId,
+        setActiveVerificationRecordId,
         processDocumentUpload,
         updateRecordFields,
         verifyRecord,

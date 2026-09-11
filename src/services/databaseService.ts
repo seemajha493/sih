@@ -154,7 +154,8 @@ export class DatabaseService {
     officerId: string,
     officerName: string,
     officerRole: string,
-    remarks?: string
+    remarks?: string,
+    recordFallback?: LandRecord
   ): Promise<LandRecord> {
     // Security check: Only officers or admins can execute database approvals
     if (officerRole === 'PUBLIC_USER') {
@@ -172,7 +173,7 @@ export class DatabaseService {
       const getReq = recordsStore.get(recordId);
 
       getReq.onsuccess = () => {
-        const record: LandRecord = getReq.result;
+        const record: LandRecord = getReq.result || recordFallback;
         if (!record) {
           reject(new Error(`Land Record #${recordId} not found in database.`));
           return;
@@ -183,6 +184,7 @@ export class DatabaseService {
         // 1. Update database fields
         const updatedRecord: LandRecord = {
           ...record,
+          id: recordId,
           status: 'VERIFIED',
           verifiedBy: `${officerName} (${officerId})`,
           verifiedAt: timestamp,
@@ -227,7 +229,8 @@ export class DatabaseService {
     officerId: string,
     officerName: string,
     officerRole: string,
-    rejectionReason: string = 'Rejected during officer verification review.'
+    rejectionReason: string = 'Rejected during officer verification review.',
+    recordFallback?: LandRecord
   ): Promise<LandRecord> {
     // Security check: Only officers or admins can execute database rejections
     if (officerRole === 'PUBLIC_USER') {
@@ -245,7 +248,7 @@ export class DatabaseService {
       const getReq = recordsStore.get(recordId);
 
       getReq.onsuccess = () => {
-        const record: LandRecord = getReq.result;
+        const record: LandRecord = getReq.result || recordFallback;
         if (!record) {
           reject(new Error(`Land Record #${recordId} not found in database.`));
           return;

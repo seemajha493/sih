@@ -93,18 +93,26 @@ const DocumentPreview: React.FC<{ record: LandRecord }> = ({ record }) => {
 };
 
 // ─── Main Component ──────────────────────────────────────────────────────────
-export const VerificationPage: React.FC = () => {
+export const VerificationPage: React.FC<{ targetRecordId?: string }> = ({ targetRecordId: propTargetRecordId }) => {
   const { user, permissions } = useAuth();
   const {
     records,
     auditLogs,
+    activeVerificationRecordId,
     updateRecordFields,
     verifyRecord,
     rejectRecord,
     sendBackRecord
   } = useLandRecords();
 
-  const pendingRecords = records.filter(r =>
+  const targetId = propTargetRecordId || activeVerificationRecordId;
+
+  // Filter records scoped to user role if required
+  const userScopedRecords = user?.role === 'PUBLIC_USER'
+    ? records.filter(r => r.uploadedBy === user.name || r.ownerName.includes(user.name) || r.id === targetId)
+    : records;
+
+  const pendingRecords = userScopedRecords.filter(r =>
     r.status === 'PENDING_VERIFICATION' ||
     r.status === 'LOW_CONFIDENCE' ||
     r.status === 'DUPLICATE' ||
@@ -112,9 +120,28 @@ export const VerificationPage: React.FC = () => {
     r.status === 'PROCESSING'
   );
 
-  const [selectedRecord, setSelectedRecord] = useState<LandRecord | null>(
-    pendingRecords[0] || records[0] || null
-  );
+  const verifiedRecords = userScopedRecords.filter(r => r.status === 'VERIFIED');
+  const [queueTab, setQueueTab] = useState<'pending' | 'verified'>('pending');
+
+  const [selectedRecord, setSelectedRecord] = useState<LandRecord | null>(() => {
+    if (targetId) {
+      const matched = records.find(r => r.id === targetId);
+      if (matched) return matched;
+    }
+    return pendingRecords[0] || userScopedRecords[0] || null;
+  });
+
+  // Sync selected record whenever targetId or records change
+  React.useEffect(() => {
+    if (targetId) {
+      console.log('[OCR Pipeline] Fetching verification request: verificationRequestId =', targetId);
+      const matched = records.find(r => r.id === targetId);
+      if (matched) {
+        setSelectedRecord(matched);
+      }
+    }
+  }, [targetId, records]);
+
   const [editedFields, setEditedFields] = useState<Record<string, string>>({});
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<'fields' | 'validation' | 'anomaly' | 'mutations' | 'history'>('fields');
@@ -130,6 +157,19 @@ export const VerificationPage: React.FC = () => {
     );
   }
 
+  // Guard: If a specific target ID was requested but does not exist in records
+  if (targetId && records.length > 0 && !records.some(r => r.id === targetId)) {
+    return (
+      <div className="gov-card p-8 text-center max-w-md mx-auto my-12 rounded border border-slate-300 bg-white">
+        <AlertTriangle className="w-10 h-10 text-amber-600 mx-auto mb-2" />
+        <h2 className="text-base font-bold text-slate-900">Verification Request Not Found</h2>
+        <p className="text-xs text-slate-600 mt-1">
+          Verification Request ID <code className="font-mono bg-slate-100 px-1 rounded">{targetId}</code> was not found or you are not authorized to view it.
+        </p>
+      </div>
+    );
+  }
+
   const showAlert = (msg: string) => {
     setActionSuccess(msg);
     setTimeout(() => setActionSuccess(null), 5000);
@@ -137,17 +177,25 @@ export const VerificationPage: React.FC = () => {
 
   const handleApprove = async () => {
     if (!selectedRecord) return;
+    const currentId = selectedRecord.id;
     try {
-      await verifyRecord(
-        selectedRecord.id,
+      const updated = await verifyRecord(
+        currentId,
         user?.name || 'Verification Officer',
         user?.role || 'VERIFICATION_OFFICER',
         'Approved after side-by-side document verification.'
       );
-      showAlert(`✓ Record #${selectedRecord.id} successfully VERIFIED and published to Central Land Registry.`);
+      showAlert(`✓ Record #${currentId} successfully VERIFIED and published to Central Land Registry.`);
       setEditedFields({});
+
+      const remainingPending = pendingRecords.filter(r => r.id !== currentId);
+      if (remainingPending.length > 0) {
+        setSelectedRecord(remainingPending[0]);
+      } else {
+        setSelectedRecord(updated);
+      }
     } catch (err: any) {
-      showAlert(`❌ Database approval failed for Record #${selectedRecord.id}: ${err.message || 'Database error'}`);
+      showAlert(`❌ Database approval failed for Record #${currentId}: ${err.message || 'Database error'}`);
     }
   };
 
@@ -259,37 +307,64 @@ export const VerificationPage: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
 
-        {/* LEFT COLUMN: Pending record queue */}
+        {/* LEFT COLUMN: Record queue */}
         <div className="lg:col-span-3 gov-card p-3 rounded border border-slate-300 bg-white space-y-2">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">Verification Queue ({pendingRecords.length})</h2>
+          <div className="flex border-b border-slate-200 pb-2 gap-1 text-[11px] font-bold">
+            <button
+              onClick={() => setQueueTab('pending')}
+              className={`px-2 py-1 rounded transition flex-1 text-center ${
+                queueTab === 'pending'
+                  ? 'bg-[#064E3B] text-white shadow-sm'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              Pending ({pendingRecords.length})
+            </button>
+            <button
+              onClick={() => setQueueTab('verified')}
+              className={`px-2 py-1 rounded transition flex-1 text-center ${
+                queueTab === 'verified'
+                  ? 'bg-[#064E3B] text-white shadow-sm'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              Verified ({verifiedRecords.length})
+            </button>
           </div>
+
           <div className="space-y-1.5 max-h-[calc(100vh-280px)] overflow-y-auto pr-0.5">
-            {pendingRecords.length > 0 ? pendingRecords.map(rec => (
-              <button
-                key={rec.id}
-                onClick={() => { setSelectedRecord(rec); setEditedFields({}); setActiveView('fields'); }}
-                className={`w-full text-left p-2.5 rounded border text-xs transition ${
-                  activeRecord?.id === rec.id
-                    ? 'border-[#064E3B] bg-emerald-50/50 shadow-sm'
-                    : 'border-slate-200 hover:border-slate-300 bg-white'
-                }`}
-              >
-                <div className="flex justify-between items-center mb-0.5">
-                  <span className="font-mono font-bold text-[#064E3B] text-[11px]">#{rec.id}</span>
-                  <ConfidenceBadge score={rec.ocrConfidence} />
-                </div>
-                <div className="font-semibold text-slate-800 truncate">{rec.ownerName}</div>
-                <div className="text-[10px] text-slate-500">Khasra {rec.khasraNo} · {rec.villageMauza}</div>
-                <div className="mt-1">
-                  <span className={`gov-badge ${statusBadge(rec.status)} text-[9px]`}>
-                    {rec.status.replace(/_/g, ' ')}
-                  </span>
-                </div>
-              </button>
-            )) : (
+            {(queueTab === 'pending' ? pendingRecords : verifiedRecords).length > 0 ? (
+              (queueTab === 'pending' ? pendingRecords : verifiedRecords).map(rec => (
+                <button
+                  key={rec.id}
+                  onClick={() => { setSelectedRecord(rec); setEditedFields({}); setActiveView('fields'); }}
+                  className={`w-full text-left p-2.5 rounded border text-xs transition ${
+                    activeRecord?.id === rec.id
+                      ? 'border-[#064E3B] bg-emerald-50/50 shadow-sm'
+                      : 'border-slate-200 hover:border-slate-300 bg-white'
+                  }`}
+                >
+                  <div className="flex justify-between items-center mb-0.5">
+                    <span className="font-mono font-bold text-[#064E3B] text-[11px]">#{rec.id}</span>
+                    <ConfidenceBadge score={rec.ocrConfidence} />
+                  </div>
+                  <div className="font-semibold text-slate-800 truncate">{rec.ownerName}</div>
+                  <div className="text-[10px] text-slate-500">Khasra {rec.khasraNo} · {rec.villageMauza}</div>
+                  <div className="mt-1 flex items-center justify-between">
+                    <span className={`gov-badge ${statusBadge(rec.status)} text-[9px]`}>
+                      {rec.status.replace(/_/g, ' ')}
+                    </span>
+                    {rec.verifiedAt && (
+                      <span className="text-[9px] text-slate-400 font-mono">
+                        {rec.verifiedAt.split(' ')[0]}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              ))
+            ) : (
               <div className="p-4 text-center text-slate-500 text-xs italic">
-                No pending verification tasks in queue.
+                {queueTab === 'pending' ? 'No pending verification tasks in queue.' : 'No verified records in database.'}
               </div>
             )}
           </div>

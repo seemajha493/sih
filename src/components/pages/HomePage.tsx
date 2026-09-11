@@ -7,7 +7,7 @@
  *   3. REMOVE DUPLICATE LAND SEARCH (Only single search box inside Hero remains)
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import type { UserRole } from '../../types/auth';
 import { EmblemLogo } from '../common/EmblemLogo';
 import { DigitalIndiaLogo } from '../common/DigitalIndiaLogo';
@@ -38,13 +38,7 @@ interface HomePageProps {
   onNavigatePage?: (page: PublicPageTab) => void;
 }
 
-const CAROUSEL_IMAGES = [
-  '/carousel/slide1.png',
-  '/carousel/slide2.png',
-  '/carousel/slide3.png',
-  '/carousel/slide4.png',
-  '/login-bg.png',
-];
+
 
 interface NoticeItem {
   id: string;
@@ -107,19 +101,9 @@ export const HomePage: React.FC<HomePageProps> = ({
   const [fontSize, setFontSize] = useState<'normal' | 'large' | 'xlarge'>('normal');
   const [language, setLanguage] = useState<'EN' | 'HI'>('EN');
 
-  // Hero background image carousel state — 5 slides rotating continuously
-  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
-
   // Notices Modals State
   const [showAllNoticesModal, setShowAllNoticesModal] = useState(false);
   const [selectedNoticeModal, setSelectedNoticeModal] = useState<NoticeItem | null>(null);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentSlideIndex((prevIndex) => (prevIndex + 1) % CAROUSEL_IMAGES.length);
-    }, 4500);
-    return () => clearInterval(timer);
-  }, []);
 
   // Hero Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -280,12 +264,6 @@ export const HomePage: React.FC<HomePageProps> = ({
               Land Records
             </button>
             <button
-              onClick={() => onNavigatePage?.('gis')}
-              className="px-4 py-2 rounded hover:bg-[#043D2E] hover:text-white transition whitespace-nowrap"
-            >
-              GIS Map
-            </button>
-            <button
               onClick={() => onNavigatePage?.('services')}
               className="px-4 py-2 rounded hover:bg-[#043D2E] hover:text-white transition whitespace-nowrap"
             >
@@ -316,26 +294,21 @@ export const HomePage: React.FC<HomePageProps> = ({
         {/* Enlarged Hero Canvas Box (~96vw x ~75-80vh) */}
         <div className="relative w-full max-w-[96vw] min-h-[65vh] md:min-h-[72vh] lg:min-h-[80vh] rounded-xl border border-emerald-800/70 shadow-2xl overflow-hidden flex flex-col justify-end p-6 sm:p-10 md:p-14 lg:p-16 text-white">
           
-          {/* Carousel Background Layer: Auto-Rotating 5 Scanned Land Archive Images (Enlarged) */}
+          {/* Single Static Background Image: Officer & Desk on Right side */}
           <div className="absolute inset-0 z-0 overflow-hidden">
-            {CAROUSEL_IMAGES.map((imgSrc, idx) => (
-              <img
-                key={imgSrc}
-                src={imgSrc}
-                alt={`Scanned Land Record Register ${idx + 1}`}
-                className={`absolute inset-0 w-full h-full object-cover object-center scale-105 transition-opacity duration-1000 ease-in-out ${
-                  idx === currentSlideIndex ? 'opacity-90' : 'opacity-0'
-                } filter contrast-110 saturate-100`}
-              />
-            ))}
+            <img
+              src="/hero_officer.jpg"
+              alt="Traditional Indian Land Record Office and Officer"
+              className="absolute inset-0 w-full h-full object-cover object-right filter contrast-105 saturate-95"
+            />
 
-            {/* Gradient Overlay tailored for Left-aligned text visibility */}
-            <div className="absolute inset-0 bg-gradient-to-r from-[#081E34]/92 via-[#081E34]/70 to-[#043D2E]/20" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#081E34]/95 via-transparent to-[#081E34]/25" />
+            {/* Dark Gradient Overlay for optimal text readability on the LEFT */}
+            <div className="absolute inset-0 bg-gradient-to-r from-[#081E34]/95 via-[#081E34]/85 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#081E34]/90 via-transparent to-[#081E34]/30" />
           </div>
 
-          {/* Hero Content Grouped & Aligned to Lower-Left */}
-          <div className="relative z-10 max-w-2xl text-left space-y-4">
+          {/* Hero Content Grouped & Aligned to LEFT side */}
+          <div className="relative z-10 max-w-xl text-left mr-auto space-y-4">
             
             {/* Official Identity Badge (Minimized font) */}
             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#064E3B]/90 border border-amber-400 text-amber-300 text-[10px] font-bold uppercase tracking-wider shadow-md backdrop-blur-md">
@@ -395,20 +368,6 @@ export const HomePage: React.FC<HomePageProps> = ({
               <a href="#notices-section" className="text-amber-300 hover:underline font-semibold flex items-center gap-1">
                 <FileSearch className="w-3.5 h-3.5" /> Track Application
               </a>
-            </div>
-
-            {/* Carousel Slide Indicators */}
-            <div className="flex items-center gap-1.5 pt-1">
-              {CAROUSEL_IMAGES.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setCurrentSlideIndex(i)}
-                  className={`h-1.5 rounded-full transition-all duration-300 ${
-                    i === currentSlideIndex ? 'w-6 bg-amber-400' : 'w-2 bg-white/50 hover:bg-white'
-                  }`}
-                  title={`Go to slide ${i + 1}`}
-                />
-              ))}
             </div>
 
           </div>

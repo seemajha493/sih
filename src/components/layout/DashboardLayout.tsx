@@ -49,11 +49,17 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
   const renderPage = () => {
     switch (activeTab) {
-      case 'dashboard':    return <DashboardPage onNavigate={setActiveTab} />;
+      case 'dashboard':    
+        if (role === 'PUBLIC_USER') return <PublicLandRecordSearch isAuthenticated={true} onLoginClick={() => {}} />;
+        if (role === 'VERIFICATION_OFFICER') return <VerificationPage />;
+        if (role === 'ADMIN') return <UserManagementPage />;
+        return <DashboardPage onNavigate={setActiveTab} />;
       case 'records':      return role === 'PUBLIC_USER' 
                              ? <PublicLandRecordSearch isAuthenticated={true} onLoginClick={() => {}} />
                              : <LandRecordsPage onNavigateToUpload={() => setActiveTab('upload')} />;
-      case 'upload':       return <UploadPage onNavigateToVerification={() => setActiveTab('verification')} />;
+      case 'upload':       return <UploadPage onNavigateToVerification={(_recordId) => {
+                             setActiveTab('verification');
+                           }} />;
       case 'verification': return <VerificationPage />;
       case 'gis':          return <GisMapPage />;
       case 'analytics':    return <AnalyticsPage />;
