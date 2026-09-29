@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useTranslation } from '../../i18n/LanguageContext';
 import {
   Home,
   LayoutDashboard,
@@ -11,7 +12,8 @@ import {
   ShieldAlert,
   Settings,
   Users,
-  Lock
+  Lock,
+  User
 } from 'lucide-react';
 
 export type NavigationTab =
@@ -24,7 +26,8 @@ export type NavigationTab =
   | 'analytics'
   | 'audit'
   | 'users'
-  | 'settings';
+  | 'settings'
+  | 'profile';
 
 interface SidebarProps {
   activeTab: NavigationTab;
@@ -41,68 +44,75 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onClose,
   pendingCount = 8,
 }) => {
-  const { permissions } = useAuth();
+  const { user, permissions } = useAuth();
+  const { t } = useTranslation();
 
   const navItems = [
     {
       id: 'home' as NavigationTab,
-      label: 'Portal Home',
+      label: t('sidebar.portalHome'),
       icon: Home,
       allowed: true,
     },
     {
       id: 'dashboard' as NavigationTab,
-      label: 'Dashboard',
+      label: t('sidebar.dashboard'),
       icon: LayoutDashboard,
-      allowed: true,
+      allowed: user?.role === 'LAND_RECORD_OFFICER',
     },
     {
       id: 'records' as NavigationTab,
-      label: 'Land Records',
+      label: t('sidebar.recordManagement'),
       icon: FileText,
       allowed: true,
     },
     {
       id: 'upload' as NavigationTab,
-      label: 'Upload & Process',
+      label: t('sidebar.digitizeUpload'),
       icon: Upload,
       allowed: permissions.canUploadDocuments,
     },
     {
       id: 'verification' as NavigationTab,
-      label: 'Verification Desk',
+      label: t('sidebar.pendingVerifications'),
       icon: CheckSquare,
       allowed: permissions.canVerifyRecords || permissions.canAccessAllRecords,
       badge: pendingCount,
     },
     {
       id: 'gis' as NavigationTab,
-      label: 'GIS Map',
+      label: t('navbar.gisMaps'),
       icon: Map,
       allowed: true,
     },
     {
       id: 'analytics' as NavigationTab,
-      label: 'Reports & Analytics',
+      label: t('sidebar.reports'),
       icon: BarChart3,
       allowed: permissions.canViewAnalytics,
     },
     {
       id: 'audit' as NavigationTab,
-      label: 'Audit Logs',
+      label: t('sidebar.auditLogs'),
       icon: ShieldAlert,
       allowed: permissions.canViewAuditLogs,
     },
     {
       id: 'users' as NavigationTab,
-      label: 'User Management',
+      label: t('sidebar.userManagement'),
       icon: Users,
       allowed: permissions.canManageUsers,
     },
     {
       id: 'settings' as NavigationTab,
-      label: 'Settings',
+      label: t('sidebar.settings'),
       icon: Settings,
+      allowed: user?.role === 'ADMIN',
+    },
+    {
+      id: 'profile' as NavigationTab,
+      label: t('sidebar.myProfile'),
+      icon: User,
       allowed: true,
     },
   ];

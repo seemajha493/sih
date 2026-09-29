@@ -124,14 +124,17 @@ const AppContent: React.FC = () => {
 };
 
 import { LandRecordProvider } from './context/LandRecordContext';
+import { LanguageProvider } from './i18n/LanguageContext';
 
 export function App() {
   return (
-    <AuthProvider>
-      <LandRecordProvider>
-        <AppContent />
-      </LandRecordProvider>
-    </AuthProvider>
+    <LanguageProvider>
+      <AuthProvider>
+        <LandRecordProvider>
+          <AppContent />
+        </LandRecordProvider>
+      </AuthProvider>
+    </LanguageProvider>
   );
 }
 

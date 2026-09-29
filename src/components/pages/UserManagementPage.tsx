@@ -5,25 +5,21 @@ import { Users, Lock, Plus, Edit3, ShieldCheck, Search, Filter } from 'lucide-re
 const MOCK_SYSTEM_USERS = [
   { id: 'USR-001', name: 'Rajesh V. Sharma',     username: 'admin',     email: 'admin@dolr.gov.in',    role: 'ADMIN',                 dept: 'DoLR HQ, New Delhi',         district: 'Central HQ',       status: 'ACTIVE',   lastLogin: '2026-09-08 15:30' },
   { id: 'USR-002', name: 'Priya S. Verma',        username: 'lrofficer', email: 'officer@dolr.gov.in',  role: 'LAND_RECORD_OFFICER',   dept: 'Tehsil Land Revenue Office', district: 'Jaipur Rural',     status: 'ACTIVE',   lastLogin: '2026-09-08 14:15' },
-  { id: 'USR-003', name: 'Amitabh R. Roy',        username: 'verifier',  email: 'verifier@dolr.gov.in', role: 'VERIFICATION_OFFICER',  dept: 'Audit & Verification Cell',  district: 'Lucknow Zone',     status: 'ACTIVE',   lastLogin: '2026-09-08 12:45' },
+  { id: 'USR-003', name: 'Dinesh Kumar Yadav',    username: 'dyadav',    email: 'dyadav@dolr.gov.in',   role: 'LAND_RECORD_OFFICER',   dept: 'Tehsil Land Revenue Office', district: 'Patna',            status: 'INACTIVE', lastLogin: '2026-09-01 09:00' },
   { id: 'USR-004', name: 'Suresh Kumar',          username: 'citizen',   email: 'citizen@gmail.com',    role: 'PUBLIC_USER',           dept: 'Public Citizen Portal',      district: 'Patna',            status: 'ACTIVE',   lastLogin: '2026-09-06 11:10' },
-  { id: 'USR-005', name: 'Neha Sharma',           username: 'ntsharma',  email: 'nsharma@dolr.gov.in',  role: 'VERIFICATION_OFFICER',  dept: 'Audit & Verification Cell',  district: 'Varanasi Zone',    status: 'ACTIVE',   lastLogin: '2026-09-07 10:00' },
-  { id: 'USR-006', name: 'Dinesh Kumar Yadav',    username: 'dyadav',    email: 'dyadav@dolr.gov.in',   role: 'LAND_RECORD_OFFICER',   dept: 'Tehsil Land Revenue Office', district: 'Patna',            status: 'INACTIVE', lastLogin: '2026-09-01 09:00' },
-  { id: 'USR-007', name: 'Shyamli Mukherjee',     username: 'smukh',     email: 'smukh@dolr.gov.in',    role: 'LAND_RECORD_OFFICER',   dept: 'Tehsil Land Revenue Office', district: 'South 24 Parganas',status: 'ACTIVE',   lastLogin: '2026-09-07 14:30' },
-  { id: 'USR-008', name: 'Pankaj Tiwari',         username: 'ptiwari',   email: 'ptiwari@dolr.gov.in',  role: 'ADMIN',                 dept: 'DoLR State HQ, Lucknow',     district: 'Lucknow',          status: 'ACTIVE',   lastLogin: '2026-09-08 08:00' },
+  { id: 'USR-005', name: 'Shyamli Mukherjee',     username: 'smukh',     email: 'smukh@dolr.gov.in',    role: 'LAND_RECORD_OFFICER',   dept: 'Tehsil Land Revenue Office', district: 'South 24 Parganas',status: 'ACTIVE',   lastLogin: '2026-09-07 14:30' },
+  { id: 'USR-006', name: 'Pankaj Tiwari',         username: 'ptiwari',   email: 'ptiwari@dolr.gov.in',  role: 'ADMIN',                 dept: 'DoLR State HQ, Lucknow',     district: 'Lucknow',          status: 'ACTIVE',   lastLogin: '2026-09-08 08:00' },
 ];
 
 const ROLE_LABELS: Record<string, string> = {
-  ADMIN: 'Administrator',
+  ADMIN: 'System Administrator',
   LAND_RECORD_OFFICER: 'Land Record Officer',
-  VERIFICATION_OFFICER: 'Verification Officer',
-  PUBLIC_USER: 'Public User',
+  PUBLIC_USER: 'Citizen / Public User',
 };
 
 const ROLE_BADGE: Record<string, string> = {
   ADMIN: 'text-purple-800 bg-purple-50 border-purple-300',
   LAND_RECORD_OFFICER: 'text-blue-800 bg-blue-50 border-blue-300',
-  VERIFICATION_OFFICER: 'text-emerald-800 bg-emerald-50 border-emerald-300',
   PUBLIC_USER: 'text-slate-600 bg-slate-100 border-slate-300',
 };
 

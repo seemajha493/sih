@@ -1,21 +1,22 @@
-import type { ExtractedField } from '../types/landRecord';
-import { recognize } from 'tesseract.js';
+import type { ExtractedField, BoundingBox } from '../types/landRecord';
+import Tesseract from 'tesseract.js';
+import {
+  detectScriptAndLanguage,
+  type ScriptDetectionResult
+} from './transliterationEngine';
+import { extractMultilingualFields } from './fieldExtractor';
+import { preprocessDocumentImage } from './imagePreprocessor';
+
+const recognize = Tesseract.recognize || (Tesseract as any).default?.recognize;
 
 export interface DocumentMetadata {
-  state: string;
-  district: string;
-  tehsil: string;
-  village: string;
-  recordYear: string;
-  language: string; // User-selected hint or AUTO
-  docType: string;
-}
-
-export interface BoundingBox {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+  state?: string;
+  district?: string;
+  tehsil?: string;
+  village?: string;
+  recordYear?: string;
+  language?: string; // User-selected hint or AUTO
+  docType?: string;
 }
 
 export interface OcrTextBlock {
@@ -40,16 +41,25 @@ export interface OcrProcessingResult {
   fileSize: string;
   fileDataUrl: string;
   uploadTimestamp: string;
-  detectedLanguages: string[]; // e.g. ['Hindi (Devanagari)', 'English (Latin)']
+  detectedLanguages: string[]; // e.g. ['Urdu (Arabic)', 'English (Latin)']
   languageConfidence: number; // 0-100
   isLanguageUncertain: boolean;
   preprocessingMetrics: PreprocessingMetrics;
   extractedFields: ExtractedField[];
   textBlocks: OcrTextBlock[];
-  overallOcrConfidence: number;
+  overallOcrConfidence: number; // Genuine composite score
+  ocrCharConfidence: number; // Pure text block confidence
+  fieldCompletenessCount: number; // e.g. 4
+  totalMandatoryFields: number; // 17
   engineName: string;
   isDemoFallback: boolean;
   rawExtractedText?: string;
+}
+
+declare global {
+  interface Window {
+    pdfjsLib?: any;
+  }
 }
 
 /**
@@ -68,41 +78,42 @@ export const readFileAsDataUrl = (file: File): Promise<string> => {
 };
 
 /**
- * Transliterates Hindi Devanagari names to Latin script for normalized values
+ * Converts PDF page 1 to an image Data URL using Canvas / PDF.js library if PDF file uploaded
  */
-export const transliterateHindiToEnglish = (hindiText: string): string => {
-  const charMap: Record<string, string> = {
-    'रामेश्वर': 'Rameshwar',
-    'प्रसाद': 'Prasad',
-    'सिंह': 'Singh',
-    'यादव': 'Yadav',
-    'शर्मा': 'Sharma',
-    'राम': 'Ram',
-    'कुमार': 'Kumar',
-    'महतो': 'Mahto',
-    'चौधरी': 'Choudhary',
-    'खाता': 'Khata',
-    'खसरा': 'Khasra',
-    'रामपुर': 'Rampur',
-    'किशनपुरा': 'Kishanpura',
-    'दानापुर': 'Danapur',
-    'सुरेश': 'Suresh',
-    'राजेश': 'Rajesh',
-    'अमित': 'Amit',
-    'विकास': 'Vikas',
-    'मोहन': 'Mohan',
-    'सोहन': 'Sohan',
-    'गोपाल': 'Gopal',
-    'दिनेश': 'Dinesh',
-    'रमेश': 'Ramesh',
-    'महेश': 'Mahesh',
-  };
+const renderPdfToDataUrl = async (file: File): Promise<string> => {
+  if (typeof window === 'undefined') {
+    throw new Error('PDF processing requires a browser environment.');
+  }
 
-  if (!hindiText) return '';
-  const words = hindiText.trim().split(/\s+/);
-  const translatedWords = words.map(w => charMap[w] || w);
-  const result = translatedWords.join(' ');
-  return result;
+  if (!window.pdfjsLib) {
+    await new Promise<void>((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      script.onload = () => {
+        if (window.pdfjsLib) {
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+        resolve();
+      };
+      script.onerror = () => reject(new Error('Failed to load PDF rendering engine.'));
+      document.head.appendChild(script);
+    });
+  }
+
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const page = await pdf.getPage(1);
+  const viewport = page.getViewport({ scale: 2.0 });
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  if (!context) {
+    throw new Error('Canvas 2D context unavailable for PDF rendering.');
+  }
+  canvas.height = viewport.height;
+  canvas.width = viewport.width;
+  await page.render({ canvasContext: context, viewport }).promise;
+  return canvas.toDataURL('image/png');
 };
 
 /**
@@ -120,25 +131,128 @@ const calculateFileHash = (file: File, dataUrl: string): number => {
 };
 
 /**
- * Core OCR Service Integration Engine supporting Production API Endpoints,
- * Tesseract.js Optical Character Recognition, and Fallback Feature Extraction.
+ * Maps language selection to dedicated Tesseract language codes
+ */
+function getTesseractLanguageHint(userLang?: string): { primary: string; fallback: string } {
+  if (!userLang || userLang === 'AUTO') {
+    return { primary: 'ben+hin+urd+eng', fallback: 'eng' };
+  }
+
+  const normalized = userLang.toUpperCase();
+  switch (normalized) {
+    case 'URDU':
+      return { primary: 'urd+eng', fallback: 'urd' };
+    case 'HINDI':
+      return { primary: 'hin+eng', fallback: 'hin' };
+    case 'BENGALI':
+      return { primary: 'ben+eng', fallback: 'ben' };
+    case 'ASSAMESE':
+      return { primary: 'asm+eng', fallback: 'asm' };
+    case 'MARATHI':
+      return { primary: 'mar+eng', fallback: 'mar' };
+    case 'TAMIL':
+      return { primary: 'tam+eng', fallback: 'tam' };
+    case 'TELUGU':
+      return { primary: 'tel+eng', fallback: 'tel' };
+    case 'GUJARATI':
+      return { primary: 'guj+eng', fallback: 'guj' };
+    case 'PUNJABI':
+      return { primary: 'pan+eng', fallback: 'pan' };
+    case 'KANNADA':
+      return { primary: 'kan+eng', fallback: 'kan' };
+    case 'MALAYALAM':
+      return { primary: 'mal+eng', fallback: 'mal' };
+    case 'ODIA':
+      return { primary: 'ori+eng', fallback: 'ori' };
+    case 'ENGLISH':
+    default:
+      return { primary: 'eng', fallback: 'eng' };
+  }
+}
+
+/**
+ * Genuine tripartite confidence calculation
+ */
+function calculateGenuineConfidence(
+  extractedFields: ExtractedField[],
+  textBlocks: OcrTextBlock[],
+  rawOcrConfidence: number
+): {
+  overallOcrConfidence: number;
+  ocrCharConfidence: number;
+  fieldCompletenessCount: number;
+  totalMandatoryFields: number;
+} {
+  const totalMandatoryFields = 17;
+  const validFields = extractedFields.filter(
+    (f) => f.value && f.value.trim().length > 0 && f.confidence > 0
+  );
+  const fieldCompletenessCount = validFields.length;
+
+  // 1. OCR Character Confidence (direct text quality)
+  const ocrCharConfidence = Math.round(
+    textBlocks.length > 0
+      ? textBlocks.reduce((acc, b) => acc + (b.confidence || 70), 0) / textBlocks.length
+      : rawOcrConfidence || 70
+  );
+
+  // 2. Field Extraction Completeness Score
+  const avgFoundFieldConfidence =
+    fieldCompletenessCount > 0
+      ? validFields.reduce((acc, f) => acc + f.confidence, 0) / fieldCompletenessCount
+      : 0;
+
+  const completenessRatio = fieldCompletenessCount / totalMandatoryFields;
+  const fieldExtractionConfidence = Math.round(completenessRatio * avgFoundFieldConfidence);
+
+  // 3. Overall Record Quality (strictly penalized when mandatory fields are missing)
+  const consistencyScore =
+    fieldCompletenessCount >= 12
+      ? 95
+      : fieldCompletenessCount >= 8
+      ? 75
+      : fieldCompletenessCount >= 5
+      ? 55
+      : 30;
+
+  const overallOcrConfidence = Math.max(
+    10,
+    Math.min(
+      98,
+      Math.round(
+        0.5 * fieldExtractionConfidence +
+        0.3 * ocrCharConfidence +
+        0.2 * consistencyScore
+      )
+    )
+  );
+
+  return {
+    overallOcrConfidence,
+    ocrCharConfidence,
+    fieldCompletenessCount,
+    totalMandatoryFields,
+  };
+}
+
+/**
+ * Core OCR Service Integration Engine supporting Tesseract.js & BHASHINI
  */
 export class OcrService {
   /**
-   * Process uploaded land document through preprocessing, OCR engine execution,
-   * text extraction, and structured field parsing.
+   * Process uploaded land document through preprocessing, multilingual OCR engine,
+   * language/script detection, structured field parsing, and native script preservation.
    */
   static async processDocument(
     file: File,
     metadata: DocumentMetadata
   ): Promise<OcrProcessingResult> {
-    // 0. Validate File input
     if (!file || !(file instanceof File)) {
-      throw new Error('Unable to extract data from this document. Please upload a valid document image.');
+      throw new Error('Unsupported or invalid file provided. Please upload a valid document image or PDF.');
     }
 
     if (file.size === 0) {
-      throw new Error('Unable to extract data from this document. The uploaded file is empty.');
+      throw new Error('Upload error: The selected file is empty (0 bytes).');
     }
 
     const dataUrl = await readFileAsDataUrl(file);
@@ -146,318 +260,219 @@ export class OcrService {
     const documentId = `DOC-${new Date().getFullYear()}-${(fileHash % 90000) + 10000}`;
     const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
-    // 1. Check for Production OCR API Endpoint via environment variables
-    const metaEnv = (import.meta as any).env || {};
-    const globalProcess = (globalThis as any).process || {};
-    const processEnv = globalProcess.env || {};
-
-    const ocrApiUrl = metaEnv.VITE_OCR_API_URL || processEnv.VITE_OCR_API_URL;
-    const ocrApiKey = metaEnv.VITE_OCR_API_KEY || processEnv.VITE_OCR_API_KEY;
-
-    if (ocrApiUrl && !ocrApiUrl.includes('localhost') && !ocrApiUrl.includes('127.0.0.1')) {
+    // Prepare OCR source (Image Data URL or Canvas PNG from PDF)
+    let ocrSource = dataUrl;
+    if (file.type.includes('pdf') || file.name.toLowerCase().endsWith('.pdf')) {
       try {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('metadata', JSON.stringify(metadata));
-
-        const headers: Record<string, string> = {};
-        if (ocrApiKey) {
-          headers['Authorization'] = `Bearer ${ocrApiKey}`;
-        }
-
-        const response = await fetch(ocrApiUrl, {
-          method: 'POST',
-          headers,
-          body: formData,
-        });
-
-        if (!response.ok) {
-          throw new Error(`Production OCR API returned status ${response.status}: ${response.statusText}`);
-        }
-
-        const apiResult = await response.json();
-        if (apiResult && apiResult.extractedFields) {
-          return {
-            ...apiResult,
-            documentId,
-            originalFileName: file.name,
-            fileDataUrl: dataUrl,
-            uploadTimestamp: timestamp,
-            isDemoFallback: false,
-          };
-        }
-      } catch (apiErr: any) {
-        console.warn('Production OCR API call failed, switching to client-side OCR engine:', apiErr?.message);
+        ocrSource = await renderPdfToDataUrl(file);
+      } catch (pdfErr: any) {
+        console.warn('PDF conversion warning, attempting direct processing:', pdfErr);
       }
     }
 
-    // 2. Perform Client-side OCR via Tesseract.js / Canvas Engine
+    // ─── STEP 1: Image Preprocessing Pipeline ───
+    let preprocessed = await preprocessDocumentImage(ocrSource);
+    let imageToScan = preprocessed.variantDataUrls.standardEnhanced;
+
+    // ─── STEP 2: Dedicated Multilingual OCR Execution ───
+    const langConfig = getTesseractLanguageHint(metadata.language);
     let rawOcrText = '';
-    let ocrConfidence = 90;
+    let ocrConfidence = 0;
     let textBlocks: OcrTextBlock[] = [];
-    let detectedLanguages: string[] = ['Hindi (Devanagari)', 'English (Latin)'];
-    let engineName = 'Tesseract.js Engine (Devanagari / English)';
 
+    const runTesseractPass = async (imgUrl: string, langStr: string) => {
+      const res = await recognize(imgUrl, langStr, { logger: () => {} });
+      const pageData = res?.data as any;
+      const text = pageData?.text || '';
+      const conf = Math.round(pageData?.confidence || 0);
+
+      const blocks: OcrTextBlock[] = (pageData?.lines || [])
+        .map((line: any) => ({
+          pageNumber: 1,
+          text: (line.text || '').trim(),
+          confidence: Math.round(line.confidence || conf),
+          boundingBox: line.bbox
+            ? {
+                x: Math.round(line.bbox.x0),
+                y: Math.round(line.bbox.y0),
+                width: Math.round(line.bbox.x1 - line.bbox.x0),
+                height: Math.round(line.bbox.y1 - line.bbox.y0),
+              }
+            : undefined,
+        }))
+        .filter((b: OcrTextBlock) => b.text.length > 0);
+
+      return { text, conf, blocks };
+    };
+
+    // Pass 1: Primary Model on Enhanced Image
     try {
-      // Determine language hint for Tesseract
-      const langHint = metadata.language === 'ENGLISH' ? 'eng' : 'hin+eng';
-      
-      const tesseractResult = await recognize(dataUrl, langHint, {
-        logger: () => {}, // silent logger
-      });
+      const pass1 = await runTesseractPass(imageToScan, langConfig.primary);
+      rawOcrText = pass1.text;
+      ocrConfidence = pass1.conf;
+      textBlocks = pass1.blocks;
 
-      if (tesseractResult && tesseractResult.data) {
-        const pageData = tesseractResult.data as any;
-        rawOcrText = pageData.text || '';
-        ocrConfidence = Math.round(pageData.confidence || 85);
-
-        if (pageData.lines && pageData.lines.length > 0) {
-          textBlocks = pageData.lines.map((line: any) => ({
-            pageNumber: 1,
-            text: (line.text || '').trim(),
-            confidence: Math.round(line.confidence || ocrConfidence),
-            boundingBox: line.bbox ? {
-              x: line.bbox.x0,
-              y: line.bbox.y0,
-              width: line.bbox.x1 - line.bbox.x0,
-              height: line.bbox.y1 - line.bbox.y0,
-            } : undefined,
-          })).filter((b: OcrTextBlock) => b.text.length > 0);
+      // Pass 2 Check: If text is sparse or confidence low, run Pass 2 on Binarized variant
+      if ((!rawOcrText || rawOcrText.trim().length < 25 || ocrConfidence < 55) && preprocessed.variantDataUrls.binarized) {
+        console.log('[OCR Pipeline] Running Pass 2 on Binarized variant...');
+        const pass2 = await runTesseractPass(preprocessed.variantDataUrls.binarized, langConfig.primary);
+        if (pass2.text.length > rawOcrText.length || pass2.conf > ocrConfidence) {
+          rawOcrText = pass2.text;
+          ocrConfidence = pass2.conf;
+          textBlocks = pass2.blocks;
         }
       }
-    } catch (tessErr) {
-      console.warn('Tesseract recognition fallback triggered:', tessErr);
+
+      // Check if Urdu was detected or requested: If Urdu characters are present, run dedicated Urdu pass if needed
+      const initialScript = detectScriptAndLanguage(rawOcrText);
+      if (initialScript.primaryScript === 'Urdu' && !langConfig.primary.includes('urd')) {
+        console.log('[OCR Pipeline] Urdu script detected — executing dedicated Urdu model pass...');
+        const urduPass = await runTesseractPass(preprocessed.variantDataUrls.binarized || imageToScan, 'urd+eng');
+        if (urduPass.text.length > 0) {
+          rawOcrText = urduPass.text;
+          ocrConfidence = urduPass.conf;
+          textBlocks = urduPass.blocks;
+        }
+      }
+    } catch (tessErr: any) {
+      console.warn('[OCR Pipeline] Primary model fallback:', tessErr);
+      try {
+        const fallbackRes = await runTesseractPass(ocrSource, 'eng');
+        rawOcrText = fallbackRes.text;
+        ocrConfidence = fallbackRes.conf;
+        textBlocks = fallbackRes.blocks;
+      } catch (e: any) {
+        throw new Error(
+          `OCR Processing Error: Failed to extract readable text. (${tessErr?.message || 'Unreadable document image'})`
+        );
+      }
     }
 
-    // 3. Extract / Parse Structured Fields dynamically based on file content & OCR text
-    const extractedFields = parseLandRecordFields(rawOcrText, file, metadata, fileHash);
-
-    // If textBlocks are empty, create synthetic text blocks from extracted fields
-    if (textBlocks.length === 0) {
-      textBlocks = [
-        { pageNumber: 1, text: `भारत सरकार / राज्य राजस्व विभाग - ${metadata.state}`, confidence: 98 },
-        { pageNumber: 1, text: `अभिलेख अधिकार (${metadata.docType})`, confidence: 95 },
-        { pageNumber: 1, text: `ग्राम: ${metadata.village} | जिला: ${metadata.district}`, confidence: 92 },
-        { pageNumber: 1, text: `काश्तकार नाम: ${extractedFields.find(f => f.fieldName === 'ownerName')?.value || 'N/A'}`, confidence: ocrConfidence },
-        { pageNumber: 1, text: `खसरा सं: ${extractedFields.find(f => f.fieldName === 'khasraNo')?.value || 'N/A'} | खाता सं: ${extractedFields.find(f => f.fieldName === 'khataNo')?.value || 'N/A'}`, confidence: 94 },
-      ];
+    if (!rawOcrText || rawOcrText.trim().length === 0) {
+      throw new Error(
+        'OCR Failure: No readable text could be identified in the uploaded document. Please upload a clear document scan.'
+      );
     }
 
-    const overallOcrConfidence = Math.round(
-      extractedFields.reduce((acc, f) => acc + f.confidence, 0) / extractedFields.length
-    );
+    // ─── STEP 3: Language & Script Auto-Detection ───
+    const scriptResult: ScriptDetectionResult = detectScriptAndLanguage(rawOcrText);
+
+    // ─── STEP 4: Structured Field Extraction & RTL / Native Script Preservation ───
+    const extractedFields = extractMultilingualFields(rawOcrText, textBlocks, metadata);
+
+    // ─── STEP 5: Genuine Tripartite Confidence Calculation ───
+    const {
+      overallOcrConfidence,
+      ocrCharConfidence,
+      fieldCompletenessCount,
+      totalMandatoryFields,
+    } = calculateGenuineConfidence(extractedFields, textBlocks, ocrConfidence);
 
     const preprocessingMetrics: PreprocessingMetrics = {
-      orientationAngle: 0,
-      contrastBoost: (fileHash % 15) + 10,
-      noiseReductionScore: (fileHash % 20) + 80,
-      resolutionDpi: file.type.includes('pdf') ? 300 : 250,
-      deskewed: true,
+      orientationAngle: preprocessed.metrics.orientationAngle,
+      contrastBoost: preprocessed.metrics.contrastBoost,
+      noiseReductionScore: preprocessed.metrics.noiseReductionScore,
+      resolutionDpi: preprocessed.metrics.resolutionDpi,
+      deskewed: preprocessed.metrics.deskewed,
     };
 
     return {
       documentId,
       originalFileName: file.name,
-      fileType: file.type || 'image/jpeg',
+      fileType: file.type || (file.name.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg'),
       fileSize: `${(file.size / 1024).toFixed(1)} KB`,
       fileDataUrl: dataUrl,
       uploadTimestamp: timestamp,
-      detectedLanguages,
-      languageConfidence: ocrConfidence,
-      isLanguageUncertain: overallOcrConfidence < 75,
+      detectedLanguages: scriptResult.allScripts,
+      languageConfidence: scriptResult.confidence,
+      isLanguageUncertain: overallOcrConfidence < 70,
       preprocessingMetrics,
       extractedFields,
       textBlocks,
       overallOcrConfidence,
-      engineName,
+      ocrCharConfidence,
+      fieldCompletenessCount,
+      totalMandatoryFields,
+      engineName: `Multilingual OCR Engine (${scriptResult.primaryScript} Native · ${langConfig.primary})`,
       isDemoFallback: false,
       rawExtractedText: rawOcrText,
     };
   }
-}
 
-/**
- * Intelligent parser that extracts structured fields from raw OCR text or file content
- */
-function parseLandRecordFields(
-  ocrText: string,
-  file: File,
-  metadata: DocumentMetadata,
-  fileHash: number
-): ExtractedField[] {
-  const isDamaged = file.name.toLowerCase().includes('faded') || file.name.toLowerCase().includes('damaged') || file.size < 40000;
+  /**
+   * Server-side / BHASHINI OCR processing path.
+   */
+  static processDocumentWithBhashini(
+    fileInfo: {
+      originalName: string;
+      mimeType: string;
+      sizeBytes: number;
+      dataUrl: string;
+    },
+    metadata: DocumentMetadata,
+    bhashiniText: string,
+    bhashiniServiceId: string
+  ): OcrProcessingResult {
+    const fileHash = Math.abs(
+      Array.from(`${fileInfo.originalName}_${fileInfo.sizeBytes}_${Date.now()}`).reduce(
+        (h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0,
+        0
+      )
+    );
+    const documentId = `DOC-${new Date().getFullYear()}-${(fileHash % 90000) + 10000}`;
+    const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
-  // Search patterns in OCR text if available
-  const findRegexMatch = (patterns: RegExp[]): string | null => {
-    if (!ocrText) return null;
-    for (const pat of patterns) {
-      const match = ocrText.match(pat);
-      if (match && match[1] && match[1].trim().length > 0) {
-        return match[1].trim();
-      }
-    }
-    return null;
-  };
+    // Build text blocks from output
+    const lines = bhashiniText.split('\n').filter((l) => l.trim().length > 0);
+    const textBlocks: OcrTextBlock[] = lines.map((line) => ({
+      pageNumber: 1,
+      text: line.trim(),
+      confidence: 88,
+      boundingBox: undefined,
+    }));
 
-  // 1. Owner Name
-  const ownerMatched = findRegexMatch([
-    /(?:काश्तकार|मालिक|खातेदार|स्वामी|नाम|Owner\s*Name|Pattadar|Holder)[:\s\-\.]*([A-Za-z\u0900-\u097F\s\.]+)/i,
-    /(?:नाम\s*काश्तकार)[:\s\-\.]*([A-Za-z\u0900-\u097F\s\.]+)/i
-  ]);
+    // Auto-detect language and script
+    const scriptResult: ScriptDetectionResult = detectScriptAndLanguage(bhashiniText);
 
-  // Derived owner name based on file characteristics to guarantee uniqueness per file
-  const HINDI_OWNER_NAMES = [
-    'रामेश्वर प्रसाद सिंह',
-    'सुरेश कुमार यादव',
-    'राजेश सिंह शर्मा',
-    'अमित कुमार महतो',
-    'विकास चौधरी',
-    'मोहन लाल वर्मा',
-    'गोपाल कृष्ण गुप्ता',
-    'दिनेश प्रसाद मिश्रा'
-  ];
+    // Structured multilingual field extraction
+    const extractedFields = extractMultilingualFields(bhashiniText, textBlocks, metadata);
 
-  const ownerHindi = ownerMatched || HINDI_OWNER_NAMES[fileHash % HINDI_OWNER_NAMES.length];
-  const ownerEng = transliterateHindiToEnglish(ownerHindi);
+    // Calculate genuine confidence
+    const {
+      overallOcrConfidence,
+      ocrCharConfidence,
+      fieldCompletenessCount,
+      totalMandatoryFields,
+    } = calculateGenuineConfidence(extractedFields, textBlocks, 88);
 
-  // 2. Father/Husband Name
-  const fatherMatched = findRegexMatch([
-    /(?:पिता|पति|वल्द|संरक्षक|Father|Husband|S\/o|W\/o|D\/o)[:\s\-\.]*([A-Za-z\u0900-\u097F\s\.]+)/i,
-    /(?:वल्द)[:\s\-\.]*([A-Za-z\u0900-\u097F\s\.]+)/i
-  ]);
+    const preprocessingMetrics: PreprocessingMetrics = {
+      orientationAngle: 0,
+      contrastBoost: 0,
+      noiseReductionScore: 95,
+      resolutionDpi: 300,
+      deskewed: true,
+    };
 
-  const HINDI_FATHER_NAMES = [
-    'अयोध्या प्रसाद सिंह',
-    'राम शरण यादव',
-    'शिव पूजन शर्मा',
-    'जगन्नाथ महतो',
-    'बलदेव चौधरी',
-    'केदार नाथ वर्मा',
-    'हरि नारायण गुप्ता',
-    'राधा कृष्ण मिश्रा'
-  ];
-  const fatherHindi = fatherMatched || HINDI_FATHER_NAMES[(fileHash + 3) % HINDI_FATHER_NAMES.length];
-
-  // 3. Khata Number
-  const khataMatched = findRegexMatch([
-    /(?:खाता\s*संख्या|खाता\s*सं|खाता|Khata\s*No|Khata)[:\s\-\.]*([0-9\/\-]+)/i
-  ]);
-  const khataNum = khataMatched || `${(fileHash % 350) + 45}`;
-
-  // 4. Khasra Number
-  const khasraMatched = findRegexMatch([
-    /(?:खसरा\s*संख्या|खसरा\s*सं|खसरा|Khasra\s*No|Khasra|Survey\s*No|Plot\s*No)[:\s\-\.]*([0-9\/\-]+)/i
-  ]);
-  const khasraNum = khasraMatched || `${(fileHash % 500) + 101}/${(fileHash % 7) + 1}`;
-
-  // 5. Khewat Number
-  const khewatMatched = findRegexMatch([
-    /(?:खेवट\s*संख्या|खेवट\s*सं|खेवट|Khewat\s*No|Khewat)[:\s\-\.]*([0-9\/\-]+)/i
-  ]);
-  const khewatNum = khewatMatched || `${(fileHash % 250) + 12}`;
-
-  // 6. Area
-  const areaMatched = findRegexMatch([
-    /(?:रकबा|क्षेत्रफल|कुल\s*क्षेत्रफल|Area)[:\s\-\.]*([0-9\.\,]+\s*(?:हेक्टेयर|एकड़|बीघा|Acres|Hectare|Bigha)?)/i
-  ]);
-  const areaVal = areaMatched || `${((fileHash % 400) / 100 + 0.85).toFixed(2)} Acres`;
-
-  return [
-    {
-      fieldName: 'ownerName',
-      fieldLabel: 'Owner Name',
-      value: ownerHindi,
-      originalValue: ownerHindi,
-      confidence: isDamaged ? 72 : 95,
-      language: 'HINDI',
-    },
-    {
-      fieldName: 'ownerNameNormalized',
-      fieldLabel: 'Owner Name (English Transliterated)',
-      value: ownerEng,
-      originalValue: ownerEng,
-      confidence: isDamaged ? 70 : 94,
-      language: 'ENGLISH',
-    },
-    {
-      fieldName: 'fatherName',
-      fieldLabel: 'Father/Husband Name',
-      value: fatherHindi,
-      originalValue: fatherHindi,
-      confidence: isDamaged ? 65 : 91,
-      language: 'HINDI',
-    },
-    {
-      fieldName: 'khataNo',
-      fieldLabel: 'Khata Number',
-      value: khataNum,
-      originalValue: khataNum,
-      confidence: 98,
-      language: 'ENGLISH',
-    },
-    {
-      fieldName: 'khasraNo',
-      fieldLabel: 'Khasra / Plot Number',
-      value: khasraNum,
-      originalValue: khasraNum,
-      confidence: 97,
-      language: 'ENGLISH',
-    },
-    {
-      fieldName: 'khewatNo',
-      fieldLabel: 'Khewat Number',
-      value: khewatNum,
-      originalValue: khewatNum,
-      confidence: 96,
-      language: 'ENGLISH',
-    },
-    {
-      fieldName: 'villageMauza',
-      fieldLabel: 'Village / Mauza',
-      value: metadata.village || 'Rampur',
-      originalValue: metadata.village || 'Rampur',
-      confidence: 95,
-      language: 'HINDI',
-    },
-    {
-      fieldName: 'tehsil',
-      fieldLabel: 'Tehsil / Block',
-      value: metadata.tehsil || 'Sanganer',
-      originalValue: metadata.tehsil || 'Sanganer',
-      confidence: 99,
-      language: 'ENGLISH',
-    },
-    {
-      fieldName: 'district',
-      fieldLabel: 'District',
-      value: metadata.district || 'Jaipur Rural',
-      originalValue: metadata.district || 'Jaipur Rural',
-      confidence: 99,
-      language: 'ENGLISH',
-    },
-    {
-      fieldName: 'state',
-      fieldLabel: 'State',
-      value: metadata.state || 'Rajasthan',
-      originalValue: metadata.state || 'Rajasthan',
-      confidence: 99,
-      language: 'ENGLISH',
-    },
-    {
-      fieldName: 'areaAcres',
-      fieldLabel: 'Land Area (Acres)',
-      value: areaVal.includes('Acres') ? areaVal : `${areaVal} Acres`,
-      originalValue: areaVal,
-      confidence: isDamaged ? 64 : 88,
-      language: 'ENGLISH',
-    },
-    {
-      fieldName: 'landCategory',
-      fieldLabel: 'Land Type',
-      value: (fileHash % 2 === 0) ? 'Agricultural' : 'Commercial / Residential',
-      originalValue: (fileHash % 2 === 0) ? 'Agricultural' : 'Commercial / Residential',
-      confidence: 94,
-      language: 'ENGLISH',
-    },
-  ];
+    return {
+      documentId,
+      originalFileName: fileInfo.originalName,
+      fileType: fileInfo.mimeType || 'image/jpeg',
+      fileSize: `${(fileInfo.sizeBytes / 1024).toFixed(1)} KB`,
+      fileDataUrl: fileInfo.dataUrl,
+      uploadTimestamp: timestamp,
+      detectedLanguages: scriptResult.allScripts,
+      languageConfidence: scriptResult.confidence,
+      isLanguageUncertain: overallOcrConfidence < 70,
+      preprocessingMetrics,
+      extractedFields,
+      textBlocks,
+      overallOcrConfidence,
+      ocrCharConfidence,
+      fieldCompletenessCount,
+      totalMandatoryFields,
+      engineName: `BHASHINI Udyat OCR (${scriptResult.primaryScript} · Service: ${bhashiniServiceId})`,
+      isDemoFallback: false,
+      rawExtractedText: bhashiniText,
+    };
+  }
 }

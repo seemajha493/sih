@@ -1,7 +1,8 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useLandRecords } from '../../context/LandRecordContext';
-import type { OcrProcessingResult } from '../../services/ocrService';
+import { useTranslation } from '../../i18n/LanguageContext';
+import type { DocumentMetadata, OcrProcessingResult } from '../../services/ocrService';
 import type { LandRecord } from '../../types/landRecord';
 import {
   Upload, CheckCircle, Lock, FileText, Image, AlertTriangle,
@@ -22,15 +23,16 @@ interface PipelineStage {
 const PIPELINE_STAGES: PipelineStage[] = [
   { id: 'preprocessing',  label: 'Image Pre-processing',          description: 'Denoising, deskewing, binarization (300 DPI)',      icon: Settings2,  duration: 600 },
   { id: 'script',         label: 'Language / Script Detection',   description: 'Devanagari (Hindi) & Latin (English) script parsing', icon: Globe,      duration: 500 },
-  { id: 'ocr',            label: 'OCR Engine Extraction',         description: 'Deep Learning text block extraction & bounding boxes',icon: FileSearch, duration: 900 },
+  { id: 'ocr',            label: 'BHASHINI OCR Extraction',       description: 'Processing document with BHASHINI OCR engine…',      icon: FileSearch, duration: 900 },
   { id: 'parsing',        label: 'Structured Field Extraction',   description: 'Parsing Khata, Khasra, Owner, Area & Land Category', icon: Cpu,        duration: 700 },
   { id: 'validation',     label: 'Rule & Duplicate Engine',       description: 'Required fields, format & registry duplicate check', icon: Shield,     duration: 600 },
   { id: 'scoring',        label: 'Field Confidence & Risk Score',  description: 'Calculating per-field OCR confidence & anomaly risk',icon: CheckSquare,duration: 400 },
-  { id: 'routing',        label: 'Auto-Routing to Verification',  description: 'Routing to Verification Officer Queue based on rules',icon: UserCheck,  duration: 400 },
+  { id: 'routing',        label: 'Routing to Officer Review',     description: 'Routing to Land Record Officer Review Queue based on rules',icon: UserCheck,  duration: 400 },
 ];
 
 export const UploadPage: React.FC<{ onNavigateToVerification?: (recordId?: string) => void }> = ({ onNavigateToVerification }) => {
   const { user, permissions } = useAuth();
+  const { t } = useTranslation();
   const { processDocumentUpload, setActiveVerificationRecordId, activeVerificationRecordId } = useLandRecords();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -46,14 +48,14 @@ export const UploadPage: React.FC<{ onNavigateToVerification?: (recordId?: strin
     ocrResult: OcrProcessingResult;
   } | null>(null);
 
-  // Metadata form
-  const [meta, setMeta] = useState({
-    state: 'Rajasthan',
-    district: 'Jaipur Rural',
-    tehsil: 'Sanganer',
-    village: 'Rampur',
-    recordYear: '2026',
-    language: 'HINDI',
+  // Metadata form (all optional hints for OCR / validation)
+  const [meta, setMeta] = useState<DocumentMetadata>({
+    state: '',
+    district: '',
+    tehsil: '',
+    village: '',
+    recordYear: '',
+    language: 'AUTO',
     docType: 'Jamabandi (Record of Rights)',
   });
 
@@ -179,14 +181,14 @@ export const UploadPage: React.FC<{ onNavigateToVerification?: (recordId?: strin
       {/* Page Header */}
       <div className="gov-card p-4 rounded border border-slate-300 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Document Upload & Digitization Engine</h1>
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight">{t('upload.title')}</h1>
           <p className="text-xs text-slate-600 mt-0.5">
-            Ingest physical Jamabandi / Khatoni / RoR scans into OCR extraction & validation pipeline
+            {t('upload.subtitle')}
           </p>
         </div>
         <div className="flex items-center gap-2 text-xs">
-          <span className="gov-badge gov-badge-success">● OCR Engine Active</span>
-          <span className="gov-badge gov-badge-info">● Multilingual Script Parser</span>
+          <span className="gov-badge gov-badge-success">● {t('upload.bhashiniActive')}</span>
+          <span className="gov-badge gov-badge-info">● {t('upload.multilingualScript')}</span>
         </div>
       </div>
 
@@ -196,7 +198,7 @@ export const UploadPage: React.FC<{ onNavigateToVerification?: (recordId?: strin
           {/* Drop Zone */}
           <div className="gov-card p-5 rounded border border-slate-300 bg-white">
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 mb-4 pb-2 border-b border-slate-200">
-              Document File Ingestion
+              {t('upload.ingestionTitle')}
             </h2>
 
             {errorMessage && (
@@ -220,12 +222,12 @@ export const UploadPage: React.FC<{ onNavigateToVerification?: (recordId?: strin
                 <input ref={fileInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.tiff" className="hidden" onChange={onFileSelect} />
                 <Upload className="w-10 h-10 text-[#064E3B] mx-auto mb-3 opacity-70" />
                 <div className="text-sm font-bold text-slate-800 mb-1">
-                  {isDragging ? 'Drop the file here' : 'Drag & Drop or Click to Select'}
+                  {isDragging ? t('upload.dropHere') : t('upload.dragDrop')}
                 </div>
                 <div className="text-xs text-slate-500 mb-3">
-                  Supported formats: PDF, JPG, JPEG, PNG, TIFF (scanned register copy or land document)
+                  {t('upload.supportedFormats')}
                 </div>
-                <div className="text-[11px] font-mono text-slate-400">Maximum file size: 25 MB</div>
+                <div className="text-[11px] font-mono text-slate-400">{t('upload.maxSize')}</div>
               </div>
             )}
 
@@ -246,13 +248,13 @@ export const UploadPage: React.FC<{ onNavigateToVerification?: (recordId?: strin
                 </div>
                 <div className="text-xs text-emerald-800 font-semibold flex items-center gap-1.5">
                   <CheckCircle className="w-3.5 h-3.5 text-emerald-700" />
-                  Document uploaded and stored. Ready for OCR extraction & validation.
+                  {t('upload.readyForOcr')}
                 </div>
                 <button
                   onClick={startProcessing}
                   className="w-full gov-btn-primary py-2.5 text-xs font-bold flex items-center justify-center gap-2"
                 >
-                  <Cpu className="w-4 h-4" /> Run OCR & Structured Validation Engine
+                  <Cpu className="w-4 h-4" /> {t('upload.runOcrBtn')}
                 </button>
               </div>
             )}
@@ -263,7 +265,7 @@ export const UploadPage: React.FC<{ onNavigateToVerification?: (recordId?: strin
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-4 h-4 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
                   <span className="text-xs font-bold text-amber-900">
-                    AI Pipeline Active — {PIPELINE_STAGES[activeStageIdx]?.label}…
+                    Processing document with BHASHINI OCR — {PIPELINE_STAGES[activeStageIdx]?.label}…
                   </span>
                 </div>
                 <div className="w-full bg-amber-200 rounded-full h-1.5 mb-2">
@@ -285,60 +287,137 @@ export const UploadPage: React.FC<{ onNavigateToVerification?: (recordId?: strin
                   <div className="flex items-center gap-2">
                     <CheckCircle className="w-5 h-5 text-emerald-700" />
                     <span className="text-sm font-bold text-emerald-900">
-                      Processing Complete — Record #{processedResult.record.id}
+                      {t('upload.completeTitle')}{processedResult.record.id}
                     </span>
                   </div>
-                  <span className="gov-badge gov-badge-warning text-[10px]">
+                  <span className={`gov-badge ${
+                    processedResult.ocrResult.overallOcrConfidence >= 80 ? 'gov-badge-success' : 'gov-badge-warning'
+                  } text-[10px]`}>
                     {processedResult.record.status.replace(/_/g, ' ')}
                   </span>
                 </div>
 
-                {/* Script & Confidence Signals */}
-                <div className="grid grid-cols-2 gap-2 text-xs">
+                {/* Script & Tripartite Genuine Confidence Signals */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                   <div className="bg-white p-2.5 rounded border border-emerald-200">
-                    <div className="text-[10px] text-slate-500 font-bold uppercase">Detected Script & Language</div>
-                    <div className="font-bold text-slate-800 mt-0.5 flex items-center gap-1">
-                      <Globe className="w-3.5 h-3.5 text-blue-600" />
-                      {processedResult.ocrResult.detectedLanguages.join(', ')}
+                    <div className="text-[10px] text-slate-500 font-bold uppercase">{t('upload.detectedScript')}</div>
+                    <div className="font-bold text-slate-800 mt-0.5 flex items-center gap-1 truncate">
+                      <Globe className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                      <span className="truncate">{processedResult.ocrResult.detectedLanguages.join(', ')}</span>
                     </div>
                   </div>
+
                   <div className="bg-white p-2.5 rounded border border-emerald-200">
-                    <div className="text-[10px] text-slate-500 font-bold uppercase">Overall OCR Confidence</div>
-                    <div className={`font-extrabold text-sm ${
-                      processedResult.ocrResult.overallOcrConfidence >= 90 ? 'text-emerald-700' : 'text-amber-700'
-                    }`}>
-                      {processedResult.ocrResult.overallOcrConfidence}%
+                    <div className="text-[10px] text-slate-500 font-bold uppercase">Field Completeness</div>
+                    <div className="font-bold text-slate-800 mt-0.5 flex items-center gap-1">
+                      <CheckSquare className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>
+                        {processedResult.ocrResult.extractedFields.filter(f => f.value && f.value.trim().length > 0).length} / {processedResult.ocrResult.extractedFields.length} Identified
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-2.5 rounded border border-emerald-200">
+                    <div className="text-[10px] text-slate-500 font-bold uppercase">{t('upload.overallConfidence')}</div>
+                    <div className="flex items-baseline gap-1.5 mt-0.5">
+                      <span className={`font-extrabold text-sm ${
+                        processedResult.ocrResult.overallOcrConfidence >= 80
+                          ? 'text-emerald-700'
+                          : processedResult.ocrResult.overallOcrConfidence >= 60
+                          ? 'text-amber-700'
+                          : 'text-rose-700'
+                      }`}>
+                        {processedResult.ocrResult.overallOcrConfidence}%
+                      </span>
+                      <span className="text-[9px] text-slate-400 font-mono">
+                        (OCR: {processedResult.ocrResult.ocrCharConfidence || processedResult.ocrResult.overallOcrConfidence}%)
+                      </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Automatic Routing Notice */}
-                <div className="p-3 bg-amber-100/80 border border-amber-300 rounded text-xs space-y-1">
-                  <div className="font-bold text-amber-900 flex items-center gap-1.5">
-                    <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
-                    Automated Routing to Verification Officer Queue
+                {/* Automatic Routing / Confidence Notice */}
+                {processedResult.ocrResult.overallOcrConfidence < 75 || processedResult.ocrResult.extractedFields.filter(f => f.value).length < 10 ? (
+                  <div className="p-3 bg-amber-100/90 border border-amber-300 rounded text-xs space-y-1">
+                    <div className="font-bold text-amber-900 flex items-center gap-1.5">
+                      <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
+                      Low OCR Confidence / Incomplete Mandatory Fields — Manual Verification Required
+                    </div>
+                    <div className="text-[11px] text-amber-800">
+                      {processedResult.record.flagReason || 'Document requires mandatory officer verification before public publication.'}
+                    </div>
                   </div>
-                  <div className="text-[11px] text-amber-800">
-                    {processedResult.record.flagReason || 'Document requires mandatory officer verification before public publication.'}
+                ) : (
+                  <div className="p-3 bg-emerald-100/80 border border-emerald-300 rounded text-xs space-y-1">
+                    <div className="font-bold text-emerald-900 flex items-center gap-1.5">
+                      <CheckCircle className="w-4 h-4 text-emerald-700 shrink-0" />
+                      High-Confidence Extraction — Ready for Officer Review
+                    </div>
+                    <div className="text-[11px] text-emerald-800">
+                      Mandatory land-record fields extracted and verified against registry schema.
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Extracted Fields Preview */}
-                <div className="bg-white p-3 rounded border border-emerald-200 text-xs space-y-2 max-h-48 overflow-y-auto">
-                  <div className="font-bold text-slate-900 border-b pb-1 text-[11px]">Extracted Land Record Fields</div>
-                  <div className="grid grid-cols-2 gap-2">
+                <div className="bg-white p-3 rounded border border-emerald-200 text-xs space-y-2 max-h-72 overflow-y-auto">
+                  <div className="font-bold text-slate-900 border-b pb-1 text-[11px] flex items-center justify-between">
+                    <span>{t('upload.extractedFieldsTitle')}</span>
+                    <span className="text-[10px] text-slate-500 font-normal">
+                      {processedResult.ocrResult.extractedFields.filter(f => f.value && f.value.trim().length > 0).length} / {processedResult.ocrResult.extractedFields.length} {t('upload.identifiedCount')}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {processedResult.ocrResult.extractedFields.map(f => (
-                      <div key={f.fieldName} className="p-1.5 bg-slate-50 rounded border border-slate-200">
+                      <div key={f.fieldName} className={`p-2 rounded border ${f.value ? 'bg-slate-50 border-slate-200' : 'bg-amber-50/50 border-amber-200 opacity-75'}`}>
                         <div className="text-[10px] text-slate-500 font-bold uppercase">{f.fieldLabel}</div>
-                        <div className="font-bold text-slate-900">{f.value}</div>
-                        <div className="text-[9px] text-slate-500 flex items-center justify-between mt-0.5">
-                          <span>Confidence: {f.confidence}%</span>
-                          {f.confidence < 75 && <span className="text-amber-700 font-bold">⚠️ Review Needed</span>}
+                        <div
+                          dir={f.isRtl ? 'rtl' : 'ltr'}
+                          className={`font-bold text-xs mt-0.5 truncate ${
+                            f.value ? 'text-slate-900' : 'text-slate-400 italic'
+                          } ${f.isRtl ? 'text-right font-medium font-serif' : ''}`}
+                        >
+                          {f.value || 'Not detected — Requires verification'}
+                        </div>
+                        {f.transliteratedValue && (
+                          <div className="text-[10px] text-slate-500 font-sans italic truncate">
+                            Transliteration: {f.transliteratedValue}
+                          </div>
+                        )}
+                        <div className="text-[9px] text-slate-500 flex items-center justify-between mt-1 pt-1 border-t border-slate-200/60">
+                          <span className="font-mono">
+                            Confidence: <strong className={f.confidence >= 80 ? 'text-emerald-700' : f.confidence > 0 ? 'text-amber-700' : 'text-slate-400'}>{f.confidence}%</strong>
+                          </span>
+                          {f.evidence?.boundingBox ? (
+                            <span className="text-[8px] bg-emerald-100 text-emerald-800 px-1 rounded font-mono">BBox Evidence ✓</span>
+                          ) : f.value ? (
+                            <span className="text-[8px] bg-blue-100 text-blue-800 px-1 rounded font-mono">Text Match</span>
+                          ) : (
+                            <span className="text-[8px] bg-slate-100 text-slate-500 px-1 rounded font-mono">No Evidence</span>
+                          )}
                         </div>
                       </div>
                     ))}
                   </div>
                 </div>
+
+                {/* Raw OCR Text Log */}
+                {processedResult.ocrResult.rawExtractedText && (
+                  <div className="bg-slate-900 text-slate-100 p-3 rounded font-mono text-[11px] space-y-1">
+                    <div className="text-[10px] uppercase font-bold text-amber-400 border-b border-slate-800 pb-1 flex items-center justify-between">
+                      <span>{processedResult.ocrResult.engineName || t('upload.rawOcrOutput')}</span>
+                      <span className="text-[9px] text-slate-400 font-normal">
+                        {processedResult.ocrResult.textBlocks.length} text blocks extracted
+                      </span>
+                    </div>
+                    <pre
+                      dir={processedResult.ocrResult.detectedLanguages.some(l => l.includes('Urdu')) ? 'rtl' : 'ltr'}
+                      className="whitespace-pre-wrap font-mono text-[10px] text-slate-300 max-h-32 overflow-y-auto pt-1 leading-relaxed"
+                    >
+                      {processedResult.ocrResult.rawExtractedText}
+                    </pre>
+                  </div>
+                )}
 
                 <div className="flex gap-2 pt-1">
                   {onNavigateToVerification && (
@@ -346,11 +425,11 @@ export const UploadPage: React.FC<{ onNavigateToVerification?: (recordId?: strin
                       onClick={handleOpenVerificationDesk}
                       className="gov-btn-primary py-2 px-4 text-xs font-bold flex items-center gap-1.5 flex-1 justify-center"
                     >
-                      <UserCheck className="w-4 h-4" /> Open Verification Desk
+                      <UserCheck className="w-4 h-4" /> {t('upload.openVerificationDesk')}
                     </button>
                   )}
                   <button onClick={reset} className="gov-btn-secondary py-2 px-4 text-xs font-bold flex-1">
-                    Upload Another Document
+                    {t('upload.uploadAnother')}
                   </button>
                 </div>
               </div>
@@ -361,7 +440,7 @@ export const UploadPage: React.FC<{ onNavigateToVerification?: (recordId?: strin
           {(isProcessing || currentStep === 'done') && (
             <div className="gov-card p-5 rounded border border-slate-300 bg-white">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 mb-4 pb-2 border-b border-slate-200">
-                AI Processing Pipeline Audit Stages
+                {t('upload.auditStages')}
               </h3>
               <div className="space-y-2">
                 {PIPELINE_STAGES.map((stage, idx) => {
@@ -399,7 +478,7 @@ export const UploadPage: React.FC<{ onNavigateToVerification?: (recordId?: strin
                         status === 'active' ? 'text-amber-700' :
                                              'text-slate-400'
                       }`}>
-                        {status === 'done' ? '✓ Done' : status === 'active' ? '⟳ Running' : '○ Pending'}
+                        {status === 'done' ? '✓ ' + t('common.verified') : status === 'active' ? '⟳ ' + t('common.loading') : '○ ' + t('common.pending')}
                       </div>
                     </div>
                   );
@@ -411,49 +490,152 @@ export const UploadPage: React.FC<{ onNavigateToVerification?: (recordId?: strin
 
         {/* RIGHT: Metadata Form + Protocol */}
         <div className="lg:col-span-5 space-y-4">
-          {/* Jurisdiction Metadata */}
+          {/* Jurisdiction Metadata & Script Hints */}
           <div className="gov-card p-5 rounded border border-slate-300 bg-white">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 mb-4 pb-2 border-b border-slate-200">
-              Document Metadata & Script Hints
-            </h3>
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200 mb-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                {t('upload.metadataPanelTitle')}
+              </h3>
+              <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">
+                {t('upload.optionalHints')}
+              </span>
+            </div>
+            
+            <p className="text-[11px] text-slate-500 mb-3 leading-relaxed">
+              {t('upload.metadataHelp')}
+            </p>
+
             <div className="space-y-3 text-xs">
-              {[
-                { label: 'Document Type', key: 'docType', options: ['Jamabandi (Record of Rights)', 'Khatoni (Khata Register)', 'Khasra Girdawari', 'Mutation Register', 'Revenue Survey Map', 'Patta Document', 'Other RoR Document'] },
-                { label: 'State',     key: 'state',     options: ['Rajasthan', 'Bihar', 'Uttar Pradesh', 'West Bengal', 'Madhya Pradesh', 'Maharashtra', 'Punjab', 'Haryana'] },
-                { label: 'District',  key: 'district',  options: ['Jaipur Rural', 'Patna', 'Lucknow', 'South 24 Parganas', 'Varanasi', 'Agra', 'Muzaffarpur'] },
-                { label: 'Tehsil',    key: 'tehsil',    options: ['Sanganer', 'Chaksu', 'Phagi', 'Amber', 'Patna Sadar', 'Lucknow East', 'Baruipur'] },
-                { label: 'Village / Mauza', key: 'village', options: ['Rampur', 'Kishanpura', 'Phagi Central', 'Danapur', 'Sisendi Khas', 'Bhangar Rajarhat'] },
-                { label: 'Record Year', key: 'recordYear', options: ['2026', '2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017'] },
-                { label: 'Document Script / Language', key: 'language', options: ['HINDI', 'ENGLISH', 'BENGALI', 'ODIA', 'MARATHI', 'PUNJABI'] },
-              ].map(({ label, key, options }) => (
-                <div key={key}>
-                  <label className="block text-slate-700 font-bold mb-1">{label}</label>
-                  <select
-                    value={meta[key as keyof typeof meta]}
-                    onChange={e => setMeta(prev => ({ ...prev, [key]: e.target.value }))}
+              {/* Document Type */}
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">{t('upload.docType')}</label>
+                <select
+                  value={meta.docType || ''}
+                  onChange={e => setMeta(prev => ({ ...prev, docType: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-[#064E3B]"
+                >
+                  <option value="Jamabandi (Record of Rights)">Jamabandi (Record of Rights)</option>
+                  <option value="Khatoni (Khata Register)">Khatoni (Khata Register)</option>
+                  <option value="Khasra Girdawari">Khasra Girdawari</option>
+                  <option value="Mutation Register">Mutation Register</option>
+                  <option value="Revenue Survey Map">Revenue Survey Map</option>
+                  <option value="Patta Document">Patta Document</option>
+                  <option value="Other Land Record">Other Land Record</option>
+                </select>
+              </div>
+
+              {/* Language / Script Hint */}
+              <div>
+                <label className="block text-slate-700 font-bold mb-1 flex items-center justify-between">
+                  <span>{t('upload.scriptLanguage')}</span>
+                  <span className="text-[10px] text-emerald-700 font-medium">{t('upload.bhashiniHint')}</span>
+                </label>
+                <select
+                  value={meta.language || 'AUTO'}
+                  onChange={e => setMeta(prev => ({ ...prev, language: e.target.value }))}
+                  className="w-full bg-emerald-50/50 border border-emerald-300 rounded px-2.5 py-1.5 text-xs font-medium text-slate-800 focus:outline-none focus:border-[#064E3B]"
+                >
+                  <option value="AUTO">{t('upload.autoDetectScript')}</option>
+                  <option value="HINDI">Hindi (Devanagari)</option>
+                  <option value="ENGLISH">English (Latin)</option>
+                  <option value="BENGALI">Bengali (Bangla)</option>
+                  <option value="ODIA">Odia</option>
+                  <option value="MARATHI">Marathi (Devanagari)</option>
+                  <option value="PUNJABI">Punjabi (Gurmukhi)</option>
+                  <option value="GUJARATI">Gujarati</option>
+                  <option value="TAMIL">Tamil</option>
+                  <option value="TELUGU">Telugu</option>
+                  <option value="KANNADA">Kannada</option>
+                  <option value="MALAYALAM">Malayalam</option>
+                  <option value="URDU">Urdu</option>
+                </select>
+              </div>
+
+              {/* State */}
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">{t('upload.state')}</label>
+                <select
+                  value={meta.state || ''}
+                  onChange={e => setMeta(prev => ({ ...prev, state: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-[#064E3B]"
+                >
+                  <option value="">{t('upload.selectState')}</option>
+                  {[
+                    'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
+                    'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand',
+                    'Karnataka', 'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur',
+                    'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab',
+                    'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura',
+                    'Uttar Pradesh', 'Uttarakhand', 'West Bengal', 'Delhi', 'Jammu & Kashmir'
+                  ].map(st => <option key={st} value={st}>{st}</option>)}
+                </select>
+              </div>
+
+              {/* District & Tehsil Grid */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">{t('upload.district')}</label>
+                  <input
+                    type="text"
+                    value={meta.district || ''}
+                    onChange={e => setMeta(prev => ({ ...prev, district: e.target.value }))}
+                    placeholder={t('upload.districtPlaceholder')}
                     className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-[#064E3B]"
-                  >
-                    {options.map(opt => <option key={opt}>{opt}</option>)}
-                  </select>
+                  />
                 </div>
-              ))}
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">{t('upload.tehsil')}</label>
+                  <input
+                    type="text"
+                    value={meta.tehsil || ''}
+                    onChange={e => setMeta(prev => ({ ...prev, tehsil: e.target.value }))}
+                    placeholder={t('upload.tehsilPlaceholder')}
+                    className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-[#064E3B]"
+                  />
+                </div>
+              </div>
+
+              {/* Village & Year Grid */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">{t('upload.village')}</label>
+                  <input
+                    type="text"
+                    value={meta.village || ''}
+                    onChange={e => setMeta(prev => ({ ...prev, village: e.target.value }))}
+                    placeholder={t('upload.villagePlaceholder')}
+                    className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-[#064E3B]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">{t('upload.recordYear')}</label>
+                  <input
+                    type="text"
+                    value={meta.recordYear || ''}
+                    onChange={e => setMeta(prev => ({ ...prev, recordYear: e.target.value }))}
+                    placeholder={t('upload.yearPlaceholder')}
+                    maxLength={4}
+                    className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-[#064E3B]"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
           {/* Protocol Info */}
           <div className="gov-card p-4 rounded border border-slate-300 bg-slate-50 text-xs space-y-3">
             <h3 className="font-bold text-[#064E3B] uppercase tracking-wider text-[11px] pb-2 border-b border-slate-200">
-              Digitization SOP Protocol (DoLR Guidelines)
+              {t('upload.sopTitle')}
             </h3>
             <ol className="space-y-2 list-none text-slate-700 font-medium">
               {[
                 'Original document binary storage & hash validation',
                 'Script auto-detection (Devanagari / English)',
-                'Tesseract & Deep Learning OCR block extraction',
+                'BHASHINI Udyat OCR text extraction',
                 'Structured Khata / Khasra field mapping',
                 'Per-field confidence scoring & format validation',
                 'Automated duplicate & area mismatch check',
-                'Routing to Verification Officer for manual review',
+                'Routing to Land Record Officer for review & verification',
                 'Immutable audit logging of all processing events',
               ].map((step, i) => (
                 <li key={i} className="flex items-start gap-2">

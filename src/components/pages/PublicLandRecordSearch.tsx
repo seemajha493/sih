@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Search, MapPin, FileText, Lock, User as UserIcon, LogIn, CheckCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useTranslation } from '../../i18n/LanguageContext';
 import { MOCK_LAND_RECORDS } from '../../mockData/mockData';
 import type { LandRecord } from '../../types/landRecord';
 import type { UserRole } from '../../types/auth';
@@ -15,6 +16,7 @@ export const PublicLandRecordSearch: React.FC<PublicLandRecordSearchProps> = ({
   onLoginClick,
 }) => {
   const { user } = useAuth();
+  const { t } = useTranslation();
   
   const [district, setDistrict] = useState('');
   const [block, setBlock] = useState('');
@@ -45,7 +47,7 @@ export const PublicLandRecordSearch: React.FC<PublicLandRecordSearchProps> = ({
     );
     
     if (!match) {
-      setSearchError('No record found matching the provided details.');
+      setSearchError(t('search.noRecords'));
       return;
     }
     
@@ -68,9 +70,9 @@ export const PublicLandRecordSearch: React.FC<PublicLandRecordSearchProps> = ({
       
       {/* Search Header */}
       <div className="text-center space-y-3 mb-8">
-        <h1 className="text-3xl font-extrabold text-[#1B365D] tracking-tight">Find Your Land Record</h1>
+        <h1 className="text-3xl font-extrabold text-[#1B365D] tracking-tight">{t('search.title')}</h1>
         <p className="text-slate-600 max-w-xl mx-auto">
-          Access your authorized digital land record securely. Land records are displayed only to authorized users. You cannot browse records belonging to other citizens.
+          {t('search.subtitle')}
         </p>
       </div>
       
@@ -78,18 +80,18 @@ export const PublicLandRecordSearch: React.FC<PublicLandRecordSearchProps> = ({
       <div className="bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden">
         <div className="bg-gradient-to-r from-[#1B365D] to-[#2E5984] p-4 text-white flex items-center gap-3">
           <Search className="w-5 h-5 text-amber-400" />
-          <h2 className="font-bold text-lg">Citizen Record Search</h2>
+          <h2 className="font-bold text-lg">{t('search.title')}</h2>
         </div>
         
         <form onSubmit={handleSearch} className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-slate-400" /> District <span className="text-red-500">*</span>
+                <MapPin className="w-3.5 h-3.5 text-slate-400" /> {t('fields.district')} <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
-                placeholder="e.g. Jaipur Rural"
+                placeholder={t('upload.districtPlaceholder')}
                 value={district}
                 onChange={e => setDistrict(e.target.value)}
                 className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-[#1B365D] focus:ring-1 focus:ring-[#1B365D] outline-none transition"
@@ -98,11 +100,11 @@ export const PublicLandRecordSearch: React.FC<PublicLandRecordSearchProps> = ({
             
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-slate-400" /> Block / Tehsil
+                <MapPin className="w-3.5 h-3.5 text-slate-400" /> {t('fields.tehsil')}
               </label>
               <input
                 type="text"
-                placeholder="e.g. Chaksu"
+                placeholder={t('upload.tehsilPlaceholder')}
                 value={block}
                 onChange={e => setBlock(e.target.value)}
                 className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-[#1B365D] focus:ring-1 focus:ring-[#1B365D] outline-none transition"
@@ -111,11 +113,11 @@ export const PublicLandRecordSearch: React.FC<PublicLandRecordSearchProps> = ({
             
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-slate-400" /> Village <span className="text-red-500">*</span>
+                <MapPin className="w-3.5 h-3.5 text-slate-400" /> {t('fields.villageMauza')} <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
-                placeholder="e.g. Kishanpura"
+                placeholder={t('upload.villagePlaceholder')}
                 value={village}
                 onChange={e => setVillage(e.target.value)}
                 className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-[#1B365D] focus:ring-1 focus:ring-[#1B365D] outline-none transition"
@@ -124,7 +126,7 @@ export const PublicLandRecordSearch: React.FC<PublicLandRecordSearchProps> = ({
             
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5 text-slate-400" /> Khesra / Plot Number <span className="text-red-500">*</span>
+                <FileText className="w-3.5 h-3.5 text-slate-400" /> {t('fields.khasraNo')} <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -137,7 +139,7 @@ export const PublicLandRecordSearch: React.FC<PublicLandRecordSearchProps> = ({
             
             <div className="space-y-1.5 md:col-span-2">
               <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5 text-slate-400" /> Khata Number (Optional)
+                <FileText className="w-3.5 h-3.5 text-slate-400" /> {t('fields.khataNo')} ({t('common.optional')})
               </label>
               <input
                 type="text"
@@ -154,7 +156,7 @@ export const PublicLandRecordSearch: React.FC<PublicLandRecordSearchProps> = ({
               type="submit"
               className="bg-[#1B365D] hover:bg-[#152B4A] text-white font-bold py-3 px-10 rounded shadow-md transition transform hover:-translate-y-0.5"
             >
-              Search Land Record
+              {t('home.searchBtn')}
             </button>
           </div>
         </form>

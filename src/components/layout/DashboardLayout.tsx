@@ -22,14 +22,10 @@ import { AnalyticsPage } from '../pages/AnalyticsPage';
 import { AuditLogsPage } from '../pages/AuditLogsPage';
 import { UserManagementPage } from '../pages/UserManagementPage';
 import { SettingsPage } from '../pages/SettingsPage';
+import { ProfilePage } from '../pages/ProfilePage';
 import { Menu, Home, LogOut } from 'lucide-react';
-
-const ROLE_LABEL: Record<UserRole, string> = {
-  ADMIN: 'Administrator',
-  LAND_RECORD_OFFICER: 'Land Record Officer',
-  VERIFICATION_OFFICER: 'Verification Officer',
-  PUBLIC_USER: 'Citizen',
-};
+import { LanguageSelector } from '../common/LanguageSelector';
+import { useTranslation } from '../../i18n/LanguageContext';
 
 interface DashboardLayoutProps {
   activeTab: NavigationTab;
@@ -43,15 +39,24 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   onPortalHome,
 }) => {
   const { user, logout } = useAuth();
+  const { t } = useTranslation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
   const role = (user?.role || 'PUBLIC_USER') as UserRole;
+
+  const getRoleLabel = (r: UserRole) => {
+    switch (r) {
+      case 'ADMIN': return t('auth.admin');
+      case 'LAND_RECORD_OFFICER': return t('auth.landRecordOfficer');
+      case 'PUBLIC_USER': return t('auth.citizen');
+      default: return r;
+    }
+  };
 
   const renderPage = () => {
     switch (activeTab) {
       case 'dashboard':    
         if (role === 'PUBLIC_USER') return <PublicLandRecordSearch isAuthenticated={true} onLoginClick={() => {}} />;
-        if (role === 'VERIFICATION_OFFICER') return <VerificationPage />;
         if (role === 'ADMIN') return <UserManagementPage />;
         return <DashboardPage onNavigate={setActiveTab} />;
       case 'records':      return role === 'PUBLIC_USER' 
@@ -65,7 +70,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       case 'analytics':    return <AnalyticsPage />;
       case 'audit':        return <AuditLogsPage />;
       case 'users':        return <UserManagementPage />;
-      case 'settings':     return <SettingsPage />;
+      case 'settings':     
+        if (role !== 'ADMIN') {
+          return <SettingsPage onNavigateToDashboard={() => setActiveTab('dashboard')} />;
+        }
+        return <SettingsPage onNavigateToDashboard={() => setActiveTab('dashboard')} />;
+      case 'profile':      return <ProfilePage />;
       default:             return <DashboardPage onNavigate={setActiveTab} />;
     }
   };
@@ -93,20 +103,21 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                   BhumiTrace
                 </div>
                 <div className="text-[10px] text-amber-300 leading-tight hidden sm:block">
-                  Department of Land Resources · Ministry of Rural Development
+                  {t('gov.dolr')} · {t('gov.mord')}
                 </div>
               </div>
             </div>
 
-            {/* Right: notifications + user + portal home */}
-            <div className="flex items-center gap-3 text-xs">
+            {/* Right: language selector + notifications + user + portal home */}
+            <div className="flex items-center gap-2.5 text-xs">
+              <LanguageSelector variant="compact" />
               <NotificationBell
                 notifications={notifications}
                 onMarkAllRead={() => setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))}
               />
               <div className="hidden sm:block text-right border-l border-slate-600 pl-3">
                 <div className="font-semibold text-white text-[11px]">{user?.name}</div>
-                <div className="text-[10px] text-amber-300">{ROLE_LABEL[role]}</div>
+                <div className="text-[10px] text-amber-300">{getRoleLabel(role)}</div>
               </div>
               <button
                 onClick={onPortalHome}
@@ -114,12 +125,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 title="Return to BhumiTrace Home"
               >
                 <Home className="w-3 h-3" />
-                <span className="hidden sm:inline">Portal Home</span>
+                <span className="hidden sm:inline">{t('sidebar.portalHome')}</span>
               </button>
               <button
                 onClick={logout}
                 className="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-red-400 transition-colors"
-                title="Logout"
+                title={t('common.logout')}
               >
                 <LogOut className="w-3.5 h-3.5" />
               </button>
@@ -140,8 +151,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           onClose={() => setSidebarOpen(false)}
         />
 
-        {/* Main content — offset for fixed sidebar on desktop */}
-        <main className="flex-1 overflow-auto lg:ml-56 p-4 sm:p-5">
+        {/* Main content */}
+        <main className="flex-1 overflow-y-auto p-4 sm:p-5 min-w-0">
           {renderPage()}
         </main>
 

@@ -1,7 +1,6 @@
 export type UserRole = 
   | 'ADMIN'
   | 'LAND_RECORD_OFFICER'
-  | 'VERIFICATION_OFFICER'
   | 'PUBLIC_USER';
 
 export interface User {

@@ -17,7 +17,7 @@ const ACTION_TYPES = [
   'User Role Modified'
 ];
 
-const ROLE_TYPES = ['All Roles', 'ADMIN', 'LAND_RECORD_OFFICER', 'VERIFICATION_OFFICER', 'SYSTEM'];
+const ROLE_TYPES = ['All Roles', 'ADMIN', 'LAND_RECORD_OFFICER', 'PUBLIC_USER', 'SYSTEM'];
 
 export const AuditLogsPage: React.FC = () => {
   const { permissions } = useAuth();
@@ -66,8 +66,7 @@ export const AuditLogsPage: React.FC = () => {
   const roleColor = (role: string) => {
     switch (role) {
       case 'ADMIN': return 'text-purple-700 bg-purple-50 border-purple-200';
-      case 'LAND_RECORD_OFFICER': return 'text-blue-700 bg-blue-50 border-blue-200';
-      case 'VERIFICATION_OFFICER': return 'text-emerald-700 bg-emerald-50 border-emerald-200';
+      case 'LAND_RECORD_OFFICER': return 'text-emerald-700 bg-emerald-50 border-emerald-200';
       default: return 'text-slate-600 bg-slate-100 border-slate-200';
     }
   };

@@ -1,10 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { LandRecord, AuditLogEntry, DocumentRecord, ExtractedField } from '../types/landRecord';
 import { MOCK_LAND_RECORDS, MOCK_AUDIT_LOGS } from '../mockData/mockData';
-import { OcrService, type DocumentMetadata, type OcrProcessingResult } from '../services/ocrService';
+import { type DocumentMetadata, type OcrProcessingResult } from '../services/ocrService';
+import { OcrService } from '../services/ocrService';
 import { ValidationEngine } from '../services/validationEngine';
 import { RoutingEngine } from '../services/routingEngine';
 import { DatabaseService } from '../services/databaseService';
+import * as api from '../services/apiService';
 
 interface LandRecordContextType {
   records: LandRecord[];
@@ -15,6 +17,7 @@ interface LandRecordContextType {
   dbError: string | null;
   latestProcessedResult: OcrProcessingResult | null;
   activeVerificationRecordId: string | null;
+  isBackendOnline: boolean;
   setActiveVerificationRecordId: (id: string | null) => void;
   processDocumentUpload: (
     file: File,
@@ -71,6 +74,7 @@ export const LandRecordProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [isDatabaseLoading, setIsDatabaseLoading] = useState(true);
   const [dbError, setDbError] = useState<string | null>(null);
   const [latestProcessedResult, setLatestProcessedResult] = useState<OcrProcessingResult | null>(null);
+  const [isBackendOnline, setIsBackendOnline] = useState(false);
   const [activeVerificationRecordId, setActiveVerificationRecordIdState] = useState<string | null>(() => {
     try {
       return sessionStorage.getItem('activeVerificationRecordId');
@@ -92,29 +96,90 @@ export const LandRecordProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
-  // Initialize data source directly from IndexedDB database (`BhumiTraceDB`)
+  // ─── Refresh helpers ────────────────────────────────────────────────────────
+
+  const refreshRecords = async (online: boolean) => {
+    try {
+      if (online) {
+        const recs = await api.fetchRecords();
+        setRecords(recs.length > 0 ? recs : MOCK_LAND_RECORDS);
+      } else {
+        const recs = await DatabaseService.getAllLandRecords();
+        setRecords(recs.length > 0 ? recs : MOCK_LAND_RECORDS);
+      }
+    } catch {
+      /* keep current state */
+    }
+  };
+
+  const refreshLogs = async (online: boolean) => {
+    try {
+      if (online) {
+        const logs = await api.fetchAuditLogs();
+        setAuditLogs(logs.length > 0 ? logs : MOCK_AUDIT_LOGS);
+      } else {
+        const logs = await DatabaseService.getAllAuditLogs();
+        setAuditLogs(logs.length > 0 ? logs : MOCK_AUDIT_LOGS);
+      }
+    } catch {
+      /* keep current state */
+    }
+  };
+
+  const refreshDocs = async (online: boolean) => {
+    try {
+      if (online) {
+        const docs = await api.fetchDocuments();
+        setDocumentRecords(docs);
+      } else {
+        const docs = await DatabaseService.getAllDocumentRecords();
+        setDocumentRecords(docs);
+      }
+    } catch {
+      /* keep current state */
+    }
+  };
+
+  // ─── Initial load — backend-first, IndexedDB fallback ──────────────────────
+
   useEffect(() => {
     let isMounted = true;
     const loadFromDatabase = async () => {
       try {
         setIsDatabaseLoading(true);
-        const dbRecords = await DatabaseService.getAllLandRecords();
-        const dbLogs = await DatabaseService.getAllAuditLogs();
 
-        if (isMounted) {
-          setRecords(dbRecords.length > 0 ? dbRecords : MOCK_LAND_RECORDS);
-          setAuditLogs(dbLogs.length > 0 ? dbLogs : MOCK_AUDIT_LOGS);
-          setDbError(null);
+        const online = await api.checkBackendHealth();
+        if (isMounted) setIsBackendOnline(online);
+
+        if (online) {
+          console.log('[DataLayer] Express backend online — loading from /api');
+          const [recs, logs, docs] = await Promise.all([
+            api.fetchRecords(),
+            api.fetchAuditLogs(),
+            api.fetchDocuments(),
+          ]);
+          if (isMounted) {
+            setRecords(recs.length > 0 ? recs : MOCK_LAND_RECORDS);
+            setAuditLogs(logs.length > 0 ? logs : MOCK_AUDIT_LOGS);
+            setDocumentRecords(docs);
+          }
+        } else {
+          console.log('[DataLayer] Backend offline — falling back to IndexedDB');
+          const dbRecords = await DatabaseService.getAllLandRecords();
+          const dbLogs = await DatabaseService.getAllAuditLogs();
+          const dbDocs = await DatabaseService.getAllDocumentRecords();
+          if (isMounted) {
+            setRecords(dbRecords.length > 0 ? dbRecords : MOCK_LAND_RECORDS);
+            setAuditLogs(dbLogs.length > 0 ? dbLogs : MOCK_AUDIT_LOGS);
+            setDocumentRecords(dbDocs);
+          }
         }
+        if (isMounted) setDbError(null);
       } catch (err: any) {
         console.error('Database connection error:', err);
-        if (isMounted) {
-          setDbError(err?.message || 'Database initialization error');
-        }
+        if (isMounted) setDbError(err?.message || 'Database initialization error');
       } finally {
-        if (isMounted) {
-          setIsDatabaseLoading(false);
-        }
+        if (isMounted) setIsDatabaseLoading(false);
       }
     };
 
@@ -123,6 +188,8 @@ export const LandRecordProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, []);
 
   const clearDbError = () => setDbError(null);
+
+  // ─── Audit log ──────────────────────────────────────────────────────────────
 
   const addAuditLogEntry = async (
     actor: string,
@@ -152,17 +219,15 @@ export const LandRecordProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     try {
       await DatabaseService.addAuditLog(newEntry);
-      const updatedLogs = await DatabaseService.getAllAuditLogs();
-      setAuditLogs(updatedLogs);
+      await refreshLogs(isBackendOnline);
     } catch (e) {
       console.error('Failed to write audit log to database', e);
       setAuditLogs(prev => [newEntry, ...prev]);
     }
   };
 
-  /**
-   * Document Upload & Processing Pipeline connected to Database
-   */
+  // ─── Document Upload & Processing — backend-first ───────────────────────────
+
   const processDocumentUpload = async (
     file: File,
     metadata: DocumentMetadata,
@@ -173,75 +238,62 @@ export const LandRecordProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setDbError(null);
 
     try {
-      // 1. OCR Extraction
-      const ocrResult = await OcrService.processDocument(file, metadata);
-      setLatestProcessedResult(ocrResult);
-      console.log('[OCR Pipeline] Document uploaded: documentId =', ocrResult.documentId);
+      let result: { record: LandRecord; ocrResult: OcrProcessingResult };
 
-      // 2. Validation & Anomaly Engine
-      const validationOutput = ValidationEngine.validate(ocrResult, records);
+      if (isBackendOnline) {
+        // ── Route through Express backend ──
+        console.log('[Upload] Routing through Express backend /api/ocr/process');
+        result = await api.uploadAndProcess(file, metadata, officerName, officerRole);
+      } else {
+        // ── Offline fallback: client-side OCR + IndexedDB ──
+        console.log('[Upload] Backend offline — running client-side OCR');
+        const ocrResult = await OcrService.processDocument(file, metadata);
+        const validationOutput = ValidationEngine.validate(ocrResult, records);
+        const { record: newRecord } = RoutingEngine.routeDocument(ocrResult, validationOutput, officerName);
 
-      // 3. Routing Engine
-      const { record: newRecord } = RoutingEngine.routeDocument(
-        ocrResult,
-        validationOutput,
-        officerName
-      );
+        await DatabaseService.saveLandRecord(newRecord);
 
-      // 4. PERSIST TO INDEXEDDB DATABASE (`land_records` table)
-      await DatabaseService.saveLandRecord(newRecord);
-      setActiveVerificationRecordId(newRecord.id);
+        const docRec: DocumentRecord = {
+          id: ocrResult.documentId,
+          originalFileName: file.name,
+          fileType: file.type.includes('pdf') ? 'PDF' : 'JPG',
+          fileSize: `${(file.size / 1024).toFixed(1)} KB`,
+          documentType: metadata.docType || 'Jamabandi',
+          state: metadata.state || '',
+          district: metadata.district || '',
+          tehsil: metadata.tehsil || '',
+          village: metadata.village || '',
+          recordYear: metadata.recordYear || '',
+          language: ocrResult.detectedLanguages.join(', '),
+          uploadedBy: officerName,
+          uploadedAt: ocrResult.uploadTimestamp,
+          processingStatus: 'EXTRACTED',
+          linkedRecordId: newRecord.id,
+        };
+        await DatabaseService.saveDocumentRecord(docRec);
 
-      console.log('[OCR Pipeline] Verification request created: verificationRequestId =', newRecord.id);
+        result = { record: newRecord, ocrResult };
+      }
 
-      // 5. Insert Audit Entry in `audit_logs` table
-      await addAuditLogEntry(
-        officerName,
-        officerRole,
-        'DOCUMENT_UPLOADED',
-        `File: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`,
-        newRecord.id,
-        'SUCCESS',
-        undefined,
-        newRecord.status,
-        `State: ${metadata.state}, District: ${metadata.district}, Village: ${metadata.village}`
-      );
+      setLatestProcessedResult(result.ocrResult);
+      setActiveVerificationRecordId(result.record.id);
+      console.log('[Upload] Record created:', result.record.id);
 
-      // Re-query database
-      const updatedDbRecords = await DatabaseService.getAllLandRecords();
-      setRecords(updatedDbRecords);
+      // Refresh state from whichever source is active
+      await refreshRecords(isBackendOnline);
+      await refreshDocs(isBackendOnline);
 
-      const docRec: DocumentRecord = {
-        id: ocrResult.documentId,
-        originalFileName: file.name,
-        fileType: file.type.includes('pdf') ? 'PDF' : 'JPG',
-        fileSize: `${(file.size / 1024).toFixed(1)} KB`,
-        documentType: metadata.docType,
-        state: metadata.state,
-        district: metadata.district,
-        tehsil: metadata.tehsil,
-        village: metadata.village,
-        recordYear: metadata.recordYear,
-        language: ocrResult.detectedLanguages.join(', '),
-        uploadedBy: officerName,
-        uploadedAt: ocrResult.uploadTimestamp,
-        processingStatus: 'EXTRACTED',
-        linkedRecordId: newRecord.id,
-      };
-
-      setDocumentRecords(prev => [docRec, ...prev]);
-      return { record: newRecord, ocrResult };
+      return result;
     } catch (err: any) {
-      setDbError(err?.message || 'Failed to process document in database');
+      setDbError(err?.message || 'Failed to process document');
       throw err;
     } finally {
       setIsProcessingUpload(false);
     }
   };
 
-  /**
-   * Officer Field Edit / Correction Tracking in Database
-   */
+  // ─── Field correction ───────────────────────────────────────────────────────
+
   const updateRecordFields = async (
     recordId: string,
     correctedFields: Record<string, string>,
@@ -268,20 +320,35 @@ export const LandRecordProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         return f;
       });
 
-      const newOwner = correctedFields['ownerName'] || targetRecord.ownerName;
-      const newKhasra = correctedFields['khasraNo'] || targetRecord.khasraNo;
-      const newArea = correctedFields['areaAcres'] ? parseFloat(correctedFields['areaAcres']) : targetRecord.areaAcres;
-
       const updatedRecord: LandRecord = {
         ...targetRecord,
-        ownerName: newOwner,
-        khasraNo: newKhasra,
-        areaAcres: isNaN(newArea) ? targetRecord.areaAcres : newArea,
+        ownerName: correctedFields['ownerName'] !== undefined ? correctedFields['ownerName'] : targetRecord.ownerName,
+        coOwnerName: correctedFields['coOwnerName'] !== undefined ? correctedFields['coOwnerName'] : targetRecord.coOwnerName,
+        khasraNo: correctedFields['khasraNo'] !== undefined ? correctedFields['khasraNo'] : targetRecord.khasraNo,
+        khataNo: correctedFields['khataNo'] !== undefined ? correctedFields['khataNo'] : targetRecord.khataNo,
+        khewatNo: correctedFields['khewatNo'] !== undefined ? correctedFields['khewatNo'] : targetRecord.khewatNo,
+        surveyNo: correctedFields['surveyNo'] !== undefined ? correctedFields['surveyNo'] : targetRecord.surveyNo,
+        plotNo: correctedFields['plotNo'] !== undefined ? correctedFields['plotNo'] : targetRecord.plotNo,
+        villageMauza: correctedFields['villageMauza'] !== undefined ? correctedFields['villageMauza'] : targetRecord.villageMauza,
+        tehsil: correctedFields['tehsil'] !== undefined ? correctedFields['tehsil'] : targetRecord.tehsil,
+        district: correctedFields['district'] !== undefined ? correctedFields['district'] : targetRecord.district,
+        state: correctedFields['state'] !== undefined ? correctedFields['state'] : targetRecord.state,
+        areaAcres: correctedFields['areaAcres'] !== undefined
+          ? (parseFloat(correctedFields['areaAcres'].replace(/[^0-9\.]/g, '')) || targetRecord.areaAcres)
+          : targetRecord.areaAcres,
+        landCategory: (correctedFields['landCategory'] as any) || targetRecord.landCategory,
+        landUse: correctedFields['landUse'] !== undefined ? correctedFields['landUse'] : targetRecord.landUse,
+        mutationNo: correctedFields['mutationNo'] !== undefined ? correctedFields['mutationNo'] : targetRecord.mutationNo,
+        registrationNo: correctedFields['registrationNo'] !== undefined ? correctedFields['registrationNo'] : targetRecord.registrationNo,
+        recordYear: correctedFields['recordYear'] !== undefined ? correctedFields['recordYear'] : targetRecord.recordYear,
         extractedFields: updatedFields,
       };
 
-      // Persist edit to IndexedDB
-      await DatabaseService.saveLandRecord(updatedRecord);
+      if (isBackendOnline) {
+        await api.saveRecord(updatedRecord);
+      } else {
+        await DatabaseService.saveLandRecord(updatedRecord);
+      }
 
       await addAuditLogEntry(
         officerName,
@@ -295,18 +362,15 @@ export const LandRecordProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         reason || 'Officer corrected field during side-by-side verification.'
       );
 
-      const refreshed = await DatabaseService.getAllLandRecords();
-      setRecords(refreshed);
+      await refreshRecords(isBackendOnline);
     } catch (err: any) {
       setDbError(err?.message || 'Database error during field correction');
       throw err;
     }
   };
 
-  /**
-   * REAL DATABASE TRANSACTION: APPROVE & PUBLISH RECORD
-   * Executes IndexedDB transaction modifying `land_records` table & `audit_logs` table
-   */
+  // ─── Approve (verify) ──────────────────────────────────────────────────────
+
   const verifyRecord = async (
     recordId: string,
     officerName: string,
@@ -315,37 +379,35 @@ export const LandRecordProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   ): Promise<LandRecord> => {
     setDbError(null);
     try {
-      const existingRecord = records.find(r => r.id === recordId);
-      const updatedRecord = await DatabaseService.approveLandRecord(
-        recordId,
-        userOfficerId(officerName),
-        officerName,
-        officerRole,
-        remarks,
-        existingRecord
-      );
+      let updatedRecord: LandRecord;
 
-      console.log('[Verification Pipeline] Record verified & published: recordId =', recordId, 'status = VERIFIED');
+      if (isBackendOnline) {
+        updatedRecord = await api.approveRecord(recordId, officerName, officerRole, remarks);
+      } else {
+        const existingRecord = records.find(r => r.id === recordId);
+        updatedRecord = await DatabaseService.approveLandRecord(
+          recordId,
+          userOfficerId(officerName),
+          officerName,
+          officerRole,
+          remarks,
+          existingRecord
+        );
+      }
 
-      // Re-query database to update single source of truth
-      const refreshedRecords = await DatabaseService.getAllLandRecords();
-      const refreshedLogs = await DatabaseService.getAllAuditLogs();
-
-      setRecords(refreshedRecords);
-      setAuditLogs(refreshedLogs);
-
+      console.log('[Verification] Record verified:', recordId);
+      await refreshRecords(isBackendOnline);
+      await refreshLogs(isBackendOnline);
       return updatedRecord;
     } catch (err: any) {
-      const msg = err?.message || 'Failed to approve land record in database';
+      const msg = err?.message || 'Failed to approve land record';
       setDbError(msg);
       throw new Error(msg);
     }
   };
 
-  /**
-   * REAL DATABASE TRANSACTION: REJECT RECORD
-   * Executes IndexedDB transaction modifying `land_records` table & `audit_logs` table
-   */
+  // ─── Reject ────────────────────────────────────────────────────────────────
+
   const rejectRecord = async (
     recordId: string,
     officerName: string,
@@ -354,36 +416,35 @@ export const LandRecordProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   ): Promise<LandRecord> => {
     setDbError(null);
     try {
-      const existingRecord = records.find(r => r.id === recordId);
-      const updatedRecord = await DatabaseService.rejectLandRecord(
-        recordId,
-        userOfficerId(officerName),
-        officerName,
-        officerRole,
-        reason,
-        existingRecord
-      );
+      let updatedRecord: LandRecord;
 
-      console.log('[Verification Pipeline] Record rejected: recordId =', recordId, 'status = REJECTED');
+      if (isBackendOnline) {
+        updatedRecord = await api.rejectRecord(recordId, officerName, officerRole, reason);
+      } else {
+        const existingRecord = records.find(r => r.id === recordId);
+        updatedRecord = await DatabaseService.rejectLandRecord(
+          recordId,
+          userOfficerId(officerName),
+          officerName,
+          officerRole,
+          reason,
+          existingRecord
+        );
+      }
 
-      // Re-query database
-      const refreshedRecords = await DatabaseService.getAllLandRecords();
-      const refreshedLogs = await DatabaseService.getAllAuditLogs();
-
-      setRecords(refreshedRecords);
-      setAuditLogs(refreshedLogs);
-
+      console.log('[Verification] Record rejected:', recordId);
+      await refreshRecords(isBackendOnline);
+      await refreshLogs(isBackendOnline);
       return updatedRecord;
     } catch (err: any) {
-      const msg = err?.message || 'Failed to reject land record in database';
+      const msg = err?.message || 'Failed to reject land record';
       setDbError(msg);
       throw new Error(msg);
     }
   };
 
-  /**
-   * Send Back Record in Database
-   */
+  // ─── Send back ──────────────────────────────────────────────────────────────
+
   const sendBackRecord = async (
     recordId: string,
     officerName: string,
@@ -401,7 +462,12 @@ export const LandRecordProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         verificationRemarks: instructions || 'Returned for rescan and re-extraction.',
       };
 
-      await DatabaseService.saveLandRecord(updatedRecord);
+      if (isBackendOnline) {
+        await api.saveRecord(updatedRecord);
+      } else {
+        await DatabaseService.saveLandRecord(updatedRecord);
+      }
+
       await addAuditLogEntry(
         officerName,
         officerRole,
@@ -414,8 +480,7 @@ export const LandRecordProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         instructions || 'Returned to scan desk.'
       );
 
-      const refreshed = await DatabaseService.getAllLandRecords();
-      setRecords(refreshed);
+      await refreshRecords(isBackendOnline);
     } catch (err: any) {
       setDbError(err?.message || 'Failed to send back record');
       throw err;
@@ -440,6 +505,7 @@ export const LandRecordProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         dbError,
         latestProcessedResult,
         activeVerificationRecordId,
+        isBackendOnline,
         setActiveVerificationRecordId,
         processDocumentUpload,
         updateRecordFields,

@@ -11,10 +11,11 @@ import type { UserRole } from '../../types/auth';
 import type { NavigationTab } from './Sidebar';
 import { EmblemLogo } from './EmblemLogo';
 import { NotificationBell } from './NotificationBell';
+import { LanguageSelector } from './LanguageSelector';
 import { MOCK_NOTIFICATIONS } from '../../mockData/mockData';
 import type { Notification } from '../../types/landRecord';
 import {
-  Menu, X, LogOut, ChevronDown, ShieldCheck, Languages, Check, Clock
+  Menu, X, LogOut, ChevronDown, ShieldCheck, Check, Clock
 } from 'lucide-react';
 
 // ── Public nav links ──────────────────────────────────────────────────────────
@@ -36,21 +37,21 @@ interface NavTabItem {
 }
 const OFFICER_TABS: NavTabItem[] = [
   { id: 'dashboard',    label: 'Dashboard',    roles: ['LAND_RECORD_OFFICER'] },
-  { id: 'records',      label: 'Land Records', roles: ['LAND_RECORD_OFFICER','VERIFICATION_OFFICER','PUBLIC_USER'] },
-  { id: 'upload',       label: 'Upload & Process', roles: ['ADMIN','LAND_RECORD_OFFICER'] },
-  { id: 'verification', label: 'Verification', roles: ['ADMIN','LAND_RECORD_OFFICER','VERIFICATION_OFFICER'], badge: 8 },
-  { id: 'gis',          label: 'GIS Map',      roles: ['ADMIN','LAND_RECORD_OFFICER','VERIFICATION_OFFICER','PUBLIC_USER'] },
-  { id: 'analytics',    label: 'Analytics',    roles: ['LAND_RECORD_OFFICER','VERIFICATION_OFFICER'] },
-  { id: 'audit',        label: 'Audit Logs',   roles: ['LAND_RECORD_OFFICER','VERIFICATION_OFFICER'] },
+  { id: 'upload',       label: 'Record Entry / Digitize', roles: ['LAND_RECORD_OFFICER'] },
+  { id: 'verification', label: 'Pending Requests', roles: ['LAND_RECORD_OFFICER'], badge: 8 },
+  { id: 'records',      label: 'Land Records', roles: ['LAND_RECORD_OFFICER','PUBLIC_USER'] },
+  { id: 'gis',          label: 'GIS Map',      roles: ['ADMIN','LAND_RECORD_OFFICER','PUBLIC_USER'] },
+  { id: 'analytics',    label: 'Analytics',    roles: ['ADMIN','LAND_RECORD_OFFICER'] },
+  { id: 'audit',        label: 'Audit Logs',   roles: ['ADMIN'] },
   { id: 'users',        label: 'Users',        roles: ['ADMIN'] },
-  { id: 'settings',     label: 'Settings',     roles: ['ADMIN','LAND_RECORD_OFFICER','PUBLIC_USER'] },
+  { id: 'settings',     label: 'System Configuration', roles: ['ADMIN'] },
+  { id: 'profile',      label: 'My Profile',   roles: ['ADMIN','LAND_RECORD_OFFICER','PUBLIC_USER'] },
 ];
 
 const ROLE_LABELS: Record<UserRole, string> = {
-  ADMIN:                 'Administrator',
+  ADMIN:                 'System Administrator',
   LAND_RECORD_OFFICER:   'Land Record Officer',
-  VERIFICATION_OFFICER:  'Verification Officer',
-  PUBLIC_USER:           'Public User',
+  PUBLIC_USER:           'Citizen / Public User',
 };
 
 interface TopNavProps {
@@ -74,7 +75,6 @@ export const TopNav: React.FC<TopNavProps> = ({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showRoleMenu, setShowRoleMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [lang, setLang] = useState<'EN' | 'HI'>('EN');
   const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
   const [currentTime, setCurrentTime] = useState('');
 
@@ -135,15 +135,8 @@ export const TopNav: React.FC<TopNavProps> = ({
               </div>
             )}
 
-            {/* Language toggle */}
-            <button
-              onClick={() => setLang(l => l === 'EN' ? 'HI' : 'EN')}
-              className="hidden sm:flex items-center gap-1 text-[11px] font-bold px-2 py-1 border border-slate-600 rounded text-slate-300 hover:text-white hover:border-slate-400 transition"
-              title="Toggle interface language"
-            >
-              <Languages className="w-3.5 h-3.5" />
-              {lang === 'EN' ? 'EN | हि' : 'हि | EN'}
-            </button>
+            {/* Language selector */}
+            <LanguageSelector variant="compact" />
 
             {/* Role switcher (demo evaluator tool) — authenticated only */}
             {isAuthenticated && (
@@ -164,7 +157,7 @@ export const TopNav: React.FC<TopNavProps> = ({
                       <div className="px-3 py-1.5 text-[10px] font-bold uppercase text-slate-500 bg-slate-50 border-b border-slate-200">
                         Switch Active Role
                       </div>
-                      {(['ADMIN','LAND_RECORD_OFFICER','VERIFICATION_OFFICER','PUBLIC_USER'] as UserRole[]).map(r => (
+                      {(['ADMIN','LAND_RECORD_OFFICER','PUBLIC_USER'] as UserRole[]).map(r => (
                         <button key={r} onClick={() => { switchRole(r); setShowRoleMenu(false); }}
                           className={`w-full text-left px-3 py-2 flex items-center justify-between hover:bg-slate-100 ${user?.role === r ? 'font-bold text-[#1B365D] bg-blue-50' : ''}`}>
                           {ROLE_LABELS[r]}
@@ -206,10 +199,14 @@ export const TopNav: React.FC<TopNavProps> = ({
                         <div className="text-[10px] text-slate-500">{user?.email}</div>
                         <div className="text-[10px] text-slate-500">{user?.department}</div>
                       </div>
-                      <button onClick={() => { handleTabClick('settings'); setShowUserMenu(false); }}
-                        className="w-full text-left px-3 py-2 text-slate-700 hover:bg-slate-100">Settings</button>
+                      <button onClick={() => { handleTabClick('profile'); setShowUserMenu(false); }}
+                        className="w-full text-left px-3 py-2 text-slate-700 hover:bg-slate-100">My Profile</button>
+                      {user?.role === 'ADMIN' && (
+                        <button onClick={() => { handleTabClick('settings'); setShowUserMenu(false); }}
+                          className="w-full text-left px-3 py-2 text-slate-700 hover:bg-slate-100">System Configuration</button>
+                      )}
                       <button onClick={() => { logout(); setShowUserMenu(false); }}
-                        className="w-full text-left px-3 py-2 text-red-700 hover:bg-red-50 flex items-center gap-2">
+                        className="w-full text-left px-3 py-2 text-red-700 hover:bg-red-50 flex items-center gap-2 border-t border-slate-100">
                         <LogOut className="w-3 h-3" /> Sign Out
                       </button>
                     </div>

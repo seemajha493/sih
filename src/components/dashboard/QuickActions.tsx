@@ -2,6 +2,7 @@ import React from 'react';
 import type { NavigationTab } from '../common/Sidebar';
 import { Upload, CheckSquare, Search, Map } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useTranslation } from '../../i18n/LanguageContext';
 
 interface QuickActionsProps {
   onNavigate: (tab: NavigationTab) => void;
@@ -9,32 +10,33 @@ interface QuickActionsProps {
 
 export const QuickActions: React.FC<QuickActionsProps> = ({ onNavigate }) => {
   const { permissions } = useAuth();
+  const { t } = useTranslation();
 
   const actions = [
     {
-      title: 'Upload Document',
-      description: 'Upload Jamabandi / RoR papers for AI extraction',
+      title: t('dashboard.uploadNewDoc'),
+      description: t('upload.subtitle'),
       icon: Upload,
       tab: 'upload' as NavigationTab,
       allowed: permissions.canUploadDocuments
     },
     {
-      title: 'View Pending Verification',
-      description: 'Review low confidence flags & verify titles',
+      title: t('dashboard.verifyPending'),
+      description: t('verification.subtitle'),
       icon: CheckSquare,
       tab: 'verification' as NavigationTab,
       allowed: permissions.canVerifyRecords || permissions.canAccessAllRecords
     },
     {
-      title: 'Search Land Records',
-      description: 'Search verified public records by Khasra or Owner',
+      title: t('dashboard.searchRegistry'),
+      description: t('search.subtitle'),
       icon: Search,
       tab: 'records' as NavigationTab,
       allowed: true
     },
     {
-      title: 'View GIS Map',
-      description: 'Explore spatial cadastre maps & parcel boundaries',
+      title: t('dashboard.viewGisMaps'),
+      description: t('gis.subtitle'),
       icon: Map,
       tab: 'gis' as NavigationTab,
       allowed: true
@@ -44,7 +46,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({ onNavigate }) => {
   return (
     <div className="gov-card p-4 rounded border border-slate-300 mb-6">
       <div className="mb-3 pb-2 border-b border-slate-200">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">Quick Actions</h2>
+        <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">{t('dashboard.quickActions')}</h2>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -54,7 +56,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({ onNavigate }) => {
 
           return (
             <button
-              key={act.title}
+              key={act.tab}
               disabled={!isAllowed}
               onClick={() => isAllowed && onNavigate(act.tab)}
               className={`p-3 rounded border text-left transition-colors flex flex-col justify-between ${
@@ -83,3 +85,4 @@ export const QuickActions: React.FC<QuickActionsProps> = ({ onNavigate }) => {
     </div>
   );
 };
+

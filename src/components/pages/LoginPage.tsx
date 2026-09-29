@@ -8,9 +8,11 @@
  */
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useTranslation } from '../../i18n/LanguageContext';
 import type { UserRole } from '../../types/auth';
 import { EmblemLogo } from '../common/EmblemLogo';
-import { ShieldCheck, Eye, EyeOff, Home, Lock, Users, FileText, CheckSquare, Settings } from 'lucide-react';
+import { LanguageSelector } from '../common/LanguageSelector';
+import { ShieldCheck, Eye, EyeOff, Home, Lock, Users, FileText, Settings } from 'lucide-react';
 
 interface LoginPageProps {
   preselectedRole?: UserRole | null;
@@ -18,54 +20,40 @@ interface LoginPageProps {
   onBack: () => void;
 }
 
-const ROLE_OPTIONS: {
-  role: UserRole;
-  title: string;
-  devanagari: string;
-  email: string;
-  icon: React.ElementType;
-  desc: string;
-}[] = [
-  {
-    role: 'PUBLIC_USER',
-    title: 'Citizen Login',
-    devanagari: 'नागरिक लॉगिन',
-    email: 'citizen@gmail.com',
-    icon: Users,
-    desc: 'Search records, track applications',
-  },
-  {
-    role: 'LAND_RECORD_OFFICER',
-    title: 'Land Record Officer',
-    devanagari: 'भू-अभिलेख अधिकारी',
-    email: 'officer@dolr.gov.in',
-    icon: FileText,
-    desc: 'Manage and digitize land records',
-  },
-  {
-    role: 'VERIFICATION_OFFICER',
-    title: 'Verification Officer',
-    devanagari: 'सत्यापन अधिकारी',
-    email: 'verifier@dolr.gov.in',
-    icon: CheckSquare,
-    desc: 'Verify and validate records',
-  },
-  {
-    role: 'ADMIN',
-    title: 'Administrator',
-    devanagari: 'व्यवस्थापक',
-    email: 'admin@dolr.gov.in',
-    icon: Settings,
-    desc: 'System management and configuration',
-  },
-];
-
 export const LoginPage: React.FC<LoginPageProps> = ({
   preselectedRole,
   onSuccess,
   onBack,
 }) => {
   const { login, isLoading } = useAuth();
+  const { t } = useTranslation();
+
+  const ROLE_OPTIONS = [
+    {
+      role: 'PUBLIC_USER' as UserRole,
+      title: t('auth.citizen'),
+      devanagari: 'नागरिक लॉगिन',
+      email: 'citizen@gmail.com',
+      icon: Users,
+      desc: 'Search records, track applications',
+    },
+    {
+      role: 'LAND_RECORD_OFFICER' as UserRole,
+      title: t('auth.landRecordOfficer'),
+      devanagari: 'भू-अभिलेख अधिकारी',
+      email: 'officer@dolr.gov.in',
+      icon: FileText,
+      desc: 'Digitize, verify and publish land records',
+    },
+    {
+      role: 'ADMIN' as UserRole,
+      title: t('auth.admin'),
+      devanagari: 'व्यवस्थापक',
+      email: 'admin@dolr.gov.in',
+      icon: Settings,
+      desc: 'System management and configuration',
+    },
+  ];
 
   const [selectedRole, setSelectedRole] = useState<UserRole>(preselectedRole ?? 'LAND_RECORD_OFFICER');
   const [identifier, setIdentifier] = useState('');
@@ -111,18 +99,22 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     }
   };
 
-  const selectedOpt = ROLE_OPTIONS.find(o => o.role === selectedRole)!;
+  const selectedOpt = ROLE_OPTIONS.find(o => o.role === selectedRole) || ROLE_OPTIONS[1];
 
   return (
     <div className="min-h-screen bg-[#F4F6F9] flex flex-col font-sans select-none" style={{ backgroundImage: "url('/login-bg.png')", backgroundSize: "cover", backgroundPosition: "center", backgroundAttachment: "fixed" }}>
 
       {/* ── Utility Bar ──────────────────────────────────────────── */}
-      <div className="bg-[#17375e] text-[11px] text-slate-300">
+      <div className="bg-[#064E3B] text-[11px] text-slate-100 border-b border-emerald-800">
         <div className="max-w-screen-xl mx-auto px-4 py-1 flex items-center justify-between">
-          <span className="font-semibold">भारत सरकार &nbsp;|&nbsp; Government of India</span>
-          <button onClick={onBack} className="flex items-center gap-1.5 text-amber-300 hover:text-amber-200 font-semibold">
-            <Home className="w-3 h-3" /> Portal Home
-          </button>
+          <span className="font-semibold">{t('gov.bharat')} &nbsp;|&nbsp; {t('gov.india')}</span>
+          <div className="flex items-center gap-3">
+            <LanguageSelector variant="compact" />
+            <span className="text-emerald-500">|</span>
+            <button onClick={onBack} className="flex items-center gap-1.5 text-amber-300 hover:text-amber-200 font-semibold">
+              <Home className="w-3 h-3" /> {t('sidebar.portalHome')}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -132,13 +124,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           <div className="flex items-center gap-3">
             <EmblemLogo variant="header" />
             <div className="border-l border-slate-200 pl-3 hidden sm:block">
-              <div className="text-[11px] font-bold text-[#064E3B] uppercase tracking-wide">भारत सरकार / Government of India</div>
-              <div className="text-[11px] text-slate-600">Ministry of Rural Development · Department of Land Resources</div>
+              <div className="text-[11px] font-bold text-[#064E3B] uppercase tracking-wide">{t('gov.bharat')} / {t('gov.india')}</div>
+              <div className="text-[11px] text-slate-600">{t('gov.mord')} · {t('gov.dolr')}</div>
             </div>
           </div>
           <div className="text-right hidden md:block">
             <div className="text-[13px] font-extrabold text-[#064E3B] uppercase tracking-wider">BhumiTrace</div>
-            <div className="text-[11px] text-slate-500">Officer / Citizen Authentication</div>
+            <div className="text-[11px] text-slate-500">{t('auth.title')}</div>
           </div>
         </div>
       </div>
@@ -147,11 +139,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       <div className="gov-tricolor-bar" />
       <div className="bg-[#081E34] border-b border-slate-800 px-4 py-2 flex items-center gap-4">
         <button onClick={onBack} className="text-[11px] font-semibold text-slate-300 hover:text-white flex items-center gap-1.5">
-          ← Back to Portal Home
+          ← {t('common.back')}
         </button>
         <span className="text-slate-600 text-xs">|</span>
         <span className="text-[11px] text-amber-300 font-semibold">
-          <Lock className="w-3 h-3 inline mr-1" />Secure Authentication
+          <Lock className="w-3 h-3 inline mr-1" />{t('auth.title')}
         </span>
       </div>
 
@@ -162,9 +154,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           {/* Role selector */}
           <div>
             <div className="text-[11px] font-bold uppercase tracking-wider text-[#064E3B] mb-2 pb-1.5 border-b border-slate-300">
-              Select Login Type
+              {t('auth.selectRole')}
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {ROLE_OPTIONS.map(opt => {
                 const Icon = opt.icon;
                 const active = selectedRole === opt.role;
@@ -208,13 +200,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
               {/* Demo notice */}
               <div className="p-2.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-sm">
-                <strong>Demo Mode:</strong> Credentials are pre-filled for evaluation. Click Login to access.
+                <strong>{t('auth.presetDemo')}:</strong> {t('auth.quickFill')}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Registered Email / Username <span className="text-red-500">*</span>
+                    {t('auth.officerId')} <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -227,14 +219,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Password <span className="text-red-500">*</span>
+                    {t('auth.password')} <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <input
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={e => setPassword(e.target.value)}
-                      placeholder="Enter your password"
+                      placeholder="••••••••"
                       className="w-full border border-slate-300 bg-white text-xs px-3 py-2 pr-8 rounded-sm focus:border-[#064E3B] focus:outline-none"
                     />
                     <button
@@ -286,9 +278,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   className="gov-btn-primary py-2 px-6 text-xs flex items-center gap-2"
                 >
                   {isLoading ? (
-                    <><span className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin" /> Authenticating…</>
+                    <><span className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin" /> {t('common.loading')}</>
                   ) : (
-                    <><ShieldCheck className="w-3.5 h-3.5" /> Login Securely</>
+                    <><ShieldCheck className="w-3.5 h-3.5" /> {t('auth.loginBtn')}</>
                   )}
                 </button>
                 <button
@@ -296,17 +288,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   onClick={onBack}
                   className="gov-btn-secondary py-2 px-4 text-xs"
                 >
-                  Cancel
-                </button>
-                <button type="button" className="text-xs text-[#064E3B] hover:underline ml-auto font-semibold">
-                  Forgot Password?
+                  {t('common.cancel')}
                 </button>
               </div>
             </form>
 
             <div className="border-t border-slate-100 px-5 py-3 bg-slate-50 text-[10px] text-slate-500 flex items-center gap-1.5">
               <ShieldCheck className="w-3 h-3 text-green-600" />
-              This is a secure, NIC-authenticated government portal. Unauthorized access is prohibited under IT Act 2000.
+              {t('auth.secNotice')}
             </div>
           </div>
 
@@ -316,8 +305,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       {/* ── Minimal footer ─────────────────────────────────────────── */}
       <footer className="bg-[#064E3B] text-slate-200 text-[10px] py-3 px-4 border-t-2 border-amber-500">
         <div className="max-w-screen-xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-1">
-          <div>© Government of India · Department of Land Resources (DoLR) · Ministry of Rural Development</div>
-          <div className="font-mono text-amber-300">Portal v1.0.4 · NIC Cloud Data Centre</div>
+          <div>{t('footer.copyright')} · {t('gov.dolr')} · {t('gov.mord')}</div>
+          <div className="font-mono text-amber-300">NIC Cloud Data Centre · DILRMP</div>
         </div>
       </footer>
     </div>

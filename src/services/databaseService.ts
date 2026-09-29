@@ -1,4 +1,4 @@
-import type { LandRecord, AuditLogEntry } from '../types/landRecord';
+import type { LandRecord, AuditLogEntry, DocumentRecord } from '../types/landRecord';
 import { MOCK_LAND_RECORDS, MOCK_AUDIT_LOGS } from '../mockData/mockData';
 
 const DB_NAME = 'BhumiTraceDB';
@@ -315,6 +315,34 @@ export class DatabaseService {
       const tx = db.transaction(STORE_AUDIT_LOGS, 'readwrite');
       const store = tx.objectStore(STORE_AUDIT_LOGS);
       const req = store.put(log);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  /**
+   * Fetch all document records from IndexedDB `document_records` table
+   */
+  static async getAllDocumentRecords(): Promise<DocumentRecord[]> {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_DOCUMENTS, 'readonly');
+      const store = tx.objectStore(STORE_DOCUMENTS);
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  /**
+   * Save or insert a document record into IndexedDB `document_records` table
+   */
+  static async saveDocumentRecord(doc: DocumentRecord): Promise<void> {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_DOCUMENTS, 'readwrite');
+      const store = tx.objectStore(STORE_DOCUMENTS);
+      const req = store.put(doc);
       req.onsuccess = () => resolve();
       req.onerror = () => reject(req.error);
     });

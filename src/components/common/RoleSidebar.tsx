@@ -5,57 +5,51 @@
  */
 import React from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useTranslation } from '../../i18n/LanguageContext';
 import type { UserRole } from '../../types/auth';
 import type { NavigationTab } from './Sidebar';
 import {
   LayoutDashboard, FileText, Upload, CheckSquare, Map,
   BarChart3, Users, Settings, Home, LogOut,
-  X, Clock, Search
+  X, Clock, Search, User
 } from 'lucide-react';
 
 interface SidebarItem {
   id: NavigationTab;
-  label: string;
+  labelKey: string;
   icon: React.ElementType;
   badge?: number;
 }
 
-const SIDEBAR_CONFIG: Record<UserRole, { title: string; items: SidebarItem[] }> = {
+const SIDEBAR_CONFIG: Record<UserRole, { titleKey: string; items: SidebarItem[] }> = {
   ADMIN: {
-    title: 'Administrator Portal',
+    titleKey: 'sidebar.adminPortal',
     items: [
-      { id: 'users',        label: 'User Management',        icon: Users },
-      { id: 'settings',     label: 'Portal Configuration',   icon: Settings },
+      { id: 'users',        labelKey: 'sidebar.userManagement',  icon: Users },
+      { id: 'audit',        labelKey: 'sidebar.auditLogs',       icon: Clock },
+      { id: 'analytics',    labelKey: 'sidebar.reports',         icon: BarChart3 },
+      { id: 'settings',     labelKey: 'sidebar.settings',        icon: Settings },
+      { id: 'profile',      labelKey: 'sidebar.myProfile',       icon: User },
     ]
   },
   LAND_RECORD_OFFICER: {
-    title: 'Land Record Officer',
+    titleKey: 'sidebar.officerPortal',
     items: [
-      { id: 'dashboard',    label: 'Dashboard',              icon: LayoutDashboard },
-      { id: 'records',      label: 'Land Record Management', icon: FileText },
-      { id: 'upload',       label: 'Record Entry / Digitize',icon: Upload },
-      { id: 'verification', label: 'Pending Requests',       icon: Clock, badge: 8 },
-      { id: 'gis',          label: 'GIS / Maps',             icon: Map },
-      { id: 'analytics',    label: 'Reports',                icon: BarChart3 },
-      { id: 'settings',     label: 'Settings',               icon: Settings },
-    ]
-  },
-  VERIFICATION_OFFICER: {
-    title: 'Verification Officer',
-    items: [
-      { id: 'verification', label: 'Pending Verifications',  icon: CheckSquare, badge: 12 },
-      { id: 'records',      label: 'Land Records',           icon: FileText },
-      { id: 'gis',          label: 'GIS / Boundary Validation', icon: Map },
-      { id: 'audit',        label: 'Verification History',   icon: Clock },
-      { id: 'analytics',    label: 'Reports',                icon: BarChart3 },
+      { id: 'dashboard',    labelKey: 'sidebar.dashboard',          icon: LayoutDashboard },
+      { id: 'upload',       labelKey: 'sidebar.digitizeUpload',     icon: Upload },
+      { id: 'verification', labelKey: 'sidebar.pendingRequests',    icon: CheckSquare, badge: 8 },
+      { id: 'records',      labelKey: 'sidebar.recordManagement',   icon: FileText },
+      { id: 'gis',          labelKey: 'navbar.gisMaps',             icon: Map },
+      { id: 'analytics',    labelKey: 'sidebar.reports',            icon: BarChart3 },
+      { id: 'profile',      labelKey: 'sidebar.myProfile',          icon: User },
     ]
   },
   PUBLIC_USER: {
-    title: 'Citizen Dashboard',
+    titleKey: 'sidebar.citizenPortal',
     items: [
-      { id: 'records',      label: 'Find Land Record',       icon: Search },
-      { id: 'gis',          label: 'My Land Map',            icon: Map },
-      { id: 'settings',     label: 'My Profile',             icon: Settings },
+      { id: 'records',      labelKey: 'sidebar.findRecord',      icon: Search },
+      { id: 'gis',          labelKey: 'sidebar.myLandMap',       icon: Map },
+      { id: 'profile',      labelKey: 'sidebar.myProfile',       icon: User },
     ]
   }
 };
@@ -76,6 +70,7 @@ export const RoleSidebar: React.FC<RoleSidebarProps> = ({
   onClose,
 }) => {
   const { user, logout } = useAuth();
+  const { t } = useTranslation();
   const role = (user?.role || 'PUBLIC_USER') as UserRole;
   const config = SIDEBAR_CONFIG[role] || SIDEBAR_CONFIG['PUBLIC_USER'];
 
@@ -84,7 +79,7 @@ export const RoleSidebar: React.FC<RoleSidebarProps> = ({
       {/* Sidebar Header */}
       <div className="bg-[#1B365D] text-white px-3 py-3">
         <div className="font-bold text-[11px] uppercase tracking-wider text-amber-300">
-          {config.title}
+          {t(config.titleKey)}
         </div>
         <div className="text-[10px] text-slate-300 mt-0.5 truncate">
           {user?.name} · {user?.department?.split(',')[0]}
@@ -107,7 +102,7 @@ export const RoleSidebar: React.FC<RoleSidebarProps> = ({
               }`}
             >
               <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-[#1B365D]' : 'text-slate-400'}`} />
-              <span className="flex-1 truncate">{item.label}</span>
+              <span className="flex-1 truncate">{t(item.labelKey)}</span>
               {item.badge && (
                 <span className="bg-amber-500 text-white text-[9px] font-bold px-1 py-0.5 rounded">
                   {item.badge}
@@ -125,14 +120,14 @@ export const RoleSidebar: React.FC<RoleSidebarProps> = ({
           className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[#1B365D] font-bold hover:bg-blue-50 border-l-2 border-transparent hover:border-[#1B365D] transition-colors"
         >
           <Home className="w-3.5 h-3.5 shrink-0" />
-          <span>Portal Home</span>
+          <span>{t('sidebar.portalHome')}</span>
         </button>
         <button
           onClick={logout}
           className="w-full flex items-center gap-2.5 px-3 py-2.5 text-red-600 hover:bg-red-50 border-l-2 border-transparent transition-colors"
         >
           <LogOut className="w-3.5 h-3.5 shrink-0" />
-          <span>Logout</span>
+          <span>{t('common.logout')}</span>
         </button>
       </div>
     </nav>
@@ -140,8 +135,8 @@ export const RoleSidebar: React.FC<RoleSidebarProps> = ({
 
   return (
     <>
-      {/* Desktop sidebar — fixed left, width 224px */}
-      <aside className="hidden lg:block w-56 shrink-0 h-full fixed top-[52px] bottom-0 left-0 z-20">
+      {/* Desktop sidebar — in-flow flex item */}
+      <aside className="hidden lg:flex flex-col w-56 shrink-0 h-full bg-white border-r border-slate-200 z-10">
         {sidebarContent}
       </aside>
 

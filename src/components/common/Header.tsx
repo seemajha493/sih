@@ -5,6 +5,8 @@ import { EmblemLogo } from './EmblemLogo';
 import { NotificationBell } from './NotificationBell';
 import { MOCK_NOTIFICATIONS } from '../../mockData/mockData';
 import type { Notification } from '../../types/landRecord';
+import { LanguageSelector } from './LanguageSelector';
+import { useTranslation } from '../../i18n/LanguageContext';
 import { 
   LogOut, 
   ShieldCheck, 
@@ -12,7 +14,6 @@ import {
   Menu, 
   X, 
   Clock,
-  Languages,
   Check
 } from 'lucide-react';
 
@@ -23,9 +24,9 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarOpen }) => {
   const { user, logout, switchRole } = useAuth();
+  const { t } = useTranslation();
   const [showRoleSwitcher, setShowRoleSwitcher] = useState(false);
   const [currentTime, setCurrentTime] = useState<string>('');
-  const [lang, setLang] = useState<'EN' | 'HI'>('EN');
   const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
 
   useEffect(() => {
@@ -52,10 +53,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarOpen }
 
   const getRoleTitle = (role?: UserRole) => {
     switch (role) {
-      case 'ADMIN': return 'ADMINISTRATOR';
-      case 'LAND_RECORD_OFFICER': return 'LAND RECORD OFFICER';
-      case 'VERIFICATION_OFFICER': return 'VERIFICATION OFFICER';
-      case 'PUBLIC_USER': return 'PUBLIC USER';
+      case 'ADMIN': return t('auth.admin');
+      case 'LAND_RECORD_OFFICER': return t('auth.landRecordOfficer');
+      case 'PUBLIC_USER': return t('auth.citizen');
       default: return 'GUEST';
     }
   };
@@ -83,10 +83,10 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarOpen }
         {/* System Title (Center - Desktop) */}
         <div className="hidden lg:flex flex-col text-center border-x border-slate-700 px-6 py-1">
           <h1 className="text-sm font-bold tracking-wide text-white uppercase">
-            Intelligent Land Record Digitization & Validation System
+            {t('home.heroTitle')}
           </h1>
           <p className="text-[11px] text-amber-300 font-medium">
-            डिजिटल भूमि अभिलेख एवं सत्यापन प्रणाली
+            डिजिटल भूमि अभिलेख एवं सत्यापन प्रणाली • DILRMP
           </p>
         </div>
 
@@ -114,9 +114,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarOpen }
             {showRoleSwitcher && (
               <div className="absolute right-0 mt-1 w-64 bg-white text-slate-900 border border-slate-300 rounded shadow-lg z-50 py-1 text-xs">
                 <div className="px-3 py-1.5 text-[10px] uppercase font-bold text-slate-600 bg-slate-100 border-b border-slate-200">
-                  Switch Active Role (Evaluation Preset)
+                  {t('auth.presetDemo')}
                 </div>
-                {(['ADMIN', 'LAND_RECORD_OFFICER', 'VERIFICATION_OFFICER', 'PUBLIC_USER'] as UserRole[]).map((r) => (
+                {(['ADMIN', 'LAND_RECORD_OFFICER', 'PUBLIC_USER'] as UserRole[]).map((r) => (
                   <button
                     key={r}
                     onClick={() => {
@@ -135,15 +135,8 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarOpen }
             )}
           </div>
 
-          {/* Language Toggle */}
-          <button
-            onClick={() => setLang(l => l === 'EN' ? 'HI' : 'EN')}
-            className="flex items-center gap-1 p-1.5 rounded bg-[#1B365D] text-slate-300 hover:text-white border border-slate-600 text-[11px] font-bold transition"
-            title="Toggle Language"
-          >
-            <Languages className="w-3.5 h-3.5" />
-            <span>{lang === 'EN' ? 'EN | हि' : 'हि | EN'}</span>
-          </button>
+          {/* Language Selector Dropdown */}
+          <LanguageSelector variant="dropdown" />
 
           {/* Notifications */}
           <NotificationBell
@@ -164,7 +157,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarOpen }
               title="Sign Out of Portal"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Logout</span>
+              <span className="hidden sm:inline">{t('common.logout')}</span>
             </button>
           </div>
 

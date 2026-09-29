@@ -1,11 +1,14 @@
 import React from 'react';
 import type { PublicPageTab } from './PublicHeader';
+import { useTranslation } from '../../i18n/LanguageContext';
 
 interface PublicFooterProps {
   onNavigatePage: (page: PublicPageTab) => void;
 }
 
 export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigatePage }) => {
+  const { t } = useTranslation();
+
   return (
     <footer className="bg-[#064E3B] text-slate-200 text-xs py-8 px-4 font-sans select-none border-t-2 border-amber-500">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -13,68 +16,68 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigatePage }) =>
           <div>
             <div className="font-bold text-white uppercase tracking-wider text-xs mb-2">BhumiTrace</div>
             <div className="text-[11px] space-y-1 text-slate-300">
-              <div>Department of Land Resources</div>
-              <div>Ministry of Rural Development</div>
-              <div>Government of India</div>
+              <div>{t('gov.dolr')}</div>
+              <div>{t('gov.mord')}</div>
+              <div>{t('gov.india')}</div>
             </div>
           </div>
 
           <div>
-            <div className="font-bold text-white uppercase tracking-wider text-xs mb-2">Quick Navigation</div>
+            <div className="font-bold text-white uppercase tracking-wider text-xs mb-2">{t('footer.linksTitle')}</div>
             <div className="text-[11px] space-y-1">
               <div>
                 <button onClick={() => onNavigatePage('land-records')} className="hover:text-white text-left">
-                  Search Land Records Directory
+                  {t('navbar.landRecords')}
                 </button>
               </div>
               <div>
                 <button onClick={() => onNavigatePage('gis')} className="hover:text-white text-left">
-                  Spatial Cadastral GIS Viewer
+                  {t('navbar.gisMaps')}
                 </button>
               </div>
               <div>
                 <button onClick={() => onNavigatePage('services')} className="hover:text-white text-left">
-                  Essential Land Services
+                  {t('navbar.services')}
                 </button>
               </div>
               <div>
                 <button onClick={() => onNavigatePage('notices')} className="hover:text-white text-left">
-                  Public Gazette & Notices
+                  {t('navbar.notices')}
                 </button>
               </div>
             </div>
           </div>
 
           <div>
-            <div className="font-bold text-white uppercase tracking-wider text-xs mb-2">Help & Legal</div>
+            <div className="font-bold text-white uppercase tracking-wider text-xs mb-2">{t('navbar.help')}</div>
             <div className="text-[11px] space-y-1">
               <div>
                 <button onClick={() => onNavigatePage('help')} className="hover:text-white text-left">
-                  Help Center & FAQs
+                  {t('navbar.help')} & FAQs
                 </button>
               </div>
-              <div><a href="#" className="hover:text-white">Terms & Conditions</a></div>
-              <div><a href="#" className="hover:text-white">Privacy Policy</a></div>
-              <div><a href="#" className="hover:text-white">Disclaimer & Copyright</a></div>
+              <div><a href="#" className="hover:text-white">{t('footer.termsOfService')}</a></div>
+              <div><a href="#" className="hover:text-white">{t('footer.privacyPolicy')}</a></div>
+              <div><a href="#" className="hover:text-white">{t('footer.copyrightPolicy')}</a></div>
             </div>
           </div>
 
           <div>
-            <div className="font-bold text-white uppercase tracking-wider text-xs mb-2">Technical Support</div>
+            <div className="font-bold text-white uppercase tracking-wider text-xs mb-2">{t('footer.helpline')}</div>
             <div className="text-[11px] space-y-1 text-slate-300">
-              <div>Toll Free Helpline: <strong>1800-11-0018</strong></div>
-              <div>Email: support-bhumitrace@gov.in</div>
-              <div>Hours: Mon - Fri (09:30 AM - 06:00 PM)</div>
+              <div>Toll Free: <strong>1800-180-1551</strong></div>
+              <div>Email: support.bhumitrace@nic.in</div>
+              <div>Mon - Sat (09:00 AM - 06:00 PM)</div>
             </div>
           </div>
         </div>
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-400">
           <div>
-            Designed & Developed for Department of Land Resources (DoLR), MoRD, Govt. of India.
+            {t('footer.disclaimer')}
           </div>
           <div>
-            © 2026 BhumiTrace. All Rights Reserved.
+            {t('footer.copyright')}
           </div>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useLandRecords } from '../../context/LandRecordContext';
+import { useTranslation } from '../../i18n/LanguageContext';
 import { StatCard } from '../dashboard/StatCard';
 import { QuickActions } from '../dashboard/QuickActions';
 import { AnalyticsCharts } from '../dashboard/AnalyticsCharts';
@@ -29,6 +30,7 @@ interface DashboardPageProps {
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const {
     records,
     verifyRecord,
@@ -147,13 +149,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
       <div className="gov-card p-4 rounded border border-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            Dashboard
+            {t('common.dashboard')}
             <span className="gov-badge gov-badge-success text-[10px]">
               IndexedDB Storage Engine Active
             </span>
           </h1>
           <p className="text-xs font-semibold text-[#064E3B] mt-0.5">
-            Welcome, {user?.name || 'Officer'} ({user?.department || 'Department of Land Resources'})
+            {t('dashboard.welcome')}, {user?.name || 'Officer'} ({user?.department || t('gov.dolr')})
           </p>
         </div>
 
@@ -203,7 +205,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
           <StatCard
-            title="Total Land Records"
+            title={t('dashboard.kpiTotal')}
             value={stats.total}
             subtitle="Ingested Database Records"
             icon={FileText}
@@ -211,7 +213,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
           />
 
           <StatCard
-            title="Digitized"
+            title={t('common.digitized')}
             value={stats.digitized}
             subtitle="AI OCR Parsed"
             icon={CheckCircle}
@@ -219,7 +221,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
           />
 
           <StatCard
-            title="Approved & Published"
+            title={t('dashboard.kpiVerified')}
             value={stats.approved}
             subtitle="Tehsildar Approved"
             icon={CheckSquare}
@@ -227,7 +229,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
           />
 
           <StatCard
-            title="Pending Requests"
+            title={t('dashboard.kpiPending')}
             value={stats.pending}
             subtitle="Awaiting Approval Action"
             icon={Clock}
@@ -238,7 +240,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
           />
 
           <StatCard
-            title="Low Confidence"
+            title={t('dashboard.kpiFlagged')}
             value={stats.lowConfidence}
             subtitle="OCR Score < 75%"
             icon={AlertTriangle}
@@ -246,7 +248,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
           />
 
           <StatCard
-            title="Rejected Records"
+            title={t('common.rejected')}
             value={stats.rejected}
             subtitle="Flagged / Rejected"
             icon={Copy}

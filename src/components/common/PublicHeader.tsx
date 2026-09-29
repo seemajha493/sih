@@ -3,6 +3,8 @@ import type { UserRole } from '../../types/auth';
 import { EmblemLogo } from './EmblemLogo';
 import { Building2, Bell } from 'lucide-react';
 import { DigitalIndiaLogo } from './DigitalIndiaLogo';
+import { LanguageSelector } from './LanguageSelector';
+import { useTranslation } from '../../i18n/LanguageContext';
 
 export type PublicPageTab = 'home' | 'land-records' | 'gis' | 'services' | 'notices' | 'help';
 
@@ -30,8 +32,8 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
   onGoToDashboard,
   showTicker = true,
 }) => {
+  const { t } = useTranslation();
   const [fontSize, setFontSize] = useState<'normal' | 'large' | 'xlarge'>('normal');
-  const [language, setLanguage] = useState<'EN' | 'HI'>('EN');
 
   const fontClass =
     fontSize === 'large' ? 'text-[104%]' : fontSize === 'xlarge' ? 'text-[112%]' : '';
@@ -42,15 +44,15 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
       <div className="bg-[#064E3B] text-slate-100 text-xs border-b border-emerald-800">
         <div className="w-full px-3 sm:px-6 py-1 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2 font-semibold text-[11px] text-white">
-            <span>भारत सरकार</span>
+            <span>{t('gov.bharat')}</span>
             <span className="text-emerald-400">|</span>
-            <span>Government of India</span>
+            <span>{t('gov.india')}</span>
           </div>
 
           <div className="flex items-center gap-3 text-[11px]">
             {/* Font Resize */}
             <div className="flex items-center gap-1">
-              <span className="text-[10px] text-slate-200 font-mono mr-0.5">Text Size:</span>
+              <span className="text-[10px] text-slate-200 font-mono mr-0.5">{t('common.textSize')}:</span>
               <button
                 onClick={() => setFontSize('normal')}
                 className={`px-1.5 py-0.5 rounded ${fontSize === 'normal' ? 'bg-[#043D2E] text-white font-bold' : 'hover:text-white'}`}
@@ -69,22 +71,8 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
 
             <span className="text-emerald-400">|</span>
 
-            {/* Language Switcher */}
-            <div className="flex items-center gap-1 font-semibold">
-              <button
-                onClick={() => setLanguage('HI')}
-                className={`hover:text-white ${language === 'HI' ? 'text-amber-300 font-bold' : ''}`}
-              >
-                हिन्दी
-              </button>
-              <span className="text-emerald-400">/</span>
-              <button
-                onClick={() => setLanguage('EN')}
-                className={`hover:text-white ${language === 'EN' ? 'text-amber-300 font-bold' : ''}`}
-              >
-                English
-              </button>
-            </div>
+            {/* Language Selector */}
+            <LanguageSelector variant="compact" />
           </div>
         </div>
       </div>
@@ -121,14 +109,14 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
                 className="bg-[#064E3B] hover:bg-[#043D2E] text-white text-xs font-bold px-4 py-2 rounded flex items-center gap-1.5 shadow-sm transition"
               >
                 <Building2 className="w-3.5 h-3.5 text-amber-300" />
-                <span>Officer Desk</span>
+                <span>{t('navbar.portal')}</span>
               </button>
             ) : (
               <button
                 onClick={() => onLoginClick()}
                 className="bg-[#064E3B] hover:bg-[#043D2E] text-white text-xs font-extrabold px-4 py-2 rounded shadow-md transition"
               >
-                Portal Login
+                {t('common.login')}
               </button>
             )}
           </div>
@@ -148,7 +136,7 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
                   : 'hover:bg-[#043D2E] hover:text-white'
               }`}
             >
-              Home
+              {t('navbar.home')}
             </button>
             <button
               onClick={() => onNavigatePage('land-records')}
@@ -158,7 +146,7 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
                   : 'hover:bg-[#064E3B] hover:text-white'
               }`}
             >
-              Land Records
+              {t('navbar.landRecords')}
             </button>
             <button
               onClick={() => onNavigatePage('services')}
@@ -168,7 +156,7 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
                   : 'hover:bg-[#064E3B] hover:text-white'
               }`}
             >
-              Services
+              {t('navbar.services')}
             </button>
             <button
               onClick={() => onNavigatePage('notices')}
@@ -178,7 +166,7 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
                   : 'hover:bg-[#064E3B] hover:text-white'
               }`}
             >
-              Notices
+              {t('navbar.notices')}
             </button>
             <button
               onClick={() => onNavigatePage('help')}
@@ -188,7 +176,7 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
                   : 'hover:bg-[#064E3B] hover:text-white'
               }`}
             >
-              Help
+              {t('navbar.help')}
             </button>
           </div>
         </div>
@@ -199,7 +187,7 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
         <div className="bg-[#081E34] text-white text-xs border-b border-amber-500/40 flex items-center overflow-hidden h-9 shadow-inner select-none">
           <div className="bg-[#064E3B] text-amber-300 font-extrabold px-3 py-2 flex items-center gap-1.5 shrink-0 z-10 border-r border-emerald-800 text-[11px] uppercase tracking-wider shadow-sm">
             <Bell className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-            <span>LATEST NOTICES</span>
+            <span>{t('home.latestNotices')}</span>
           </div>
           <div className="overflow-hidden whitespace-nowrap flex-1 relative flex items-center">
             <div className="animate-marquee pl-4">

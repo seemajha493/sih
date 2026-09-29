@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useLandRecords } from '../../context/LandRecordContext';
+import { useTranslation } from '../../i18n/LanguageContext';
 import type { LandRecord, ExtractedField, ValidationResult } from '../../types/landRecord';
 import {
   Check, X, Lock, Edit3, AlertTriangle, CheckCircle, Info,
@@ -95,6 +96,7 @@ const DocumentPreview: React.FC<{ record: LandRecord }> = ({ record }) => {
 // ─── Main Component ──────────────────────────────────────────────────────────
 export const VerificationPage: React.FC<{ targetRecordId?: string }> = ({ targetRecordId: propTargetRecordId }) => {
   const { user, permissions } = useAuth();
+  const { t } = useTranslation();
   const {
     records,
     auditLogs,
@@ -152,7 +154,7 @@ export const VerificationPage: React.FC<{ targetRecordId?: string }> = ({ target
       <div className="gov-card p-8 text-center max-w-md mx-auto my-12 rounded border border-slate-300">
         <Lock className="w-10 h-10 text-amber-700 mx-auto mb-2" />
         <h2 className="text-base font-bold text-slate-900">Access Restricted</h2>
-        <p className="text-xs text-slate-600 mt-1">Permission required: Verification Officer or Administrator designation.</p>
+        <p className="text-xs text-slate-600 mt-1">Permission required: Land Record Officer or Administrator designation.</p>
       </div>
     );
   }
@@ -181,8 +183,8 @@ export const VerificationPage: React.FC<{ targetRecordId?: string }> = ({ target
     try {
       const updated = await verifyRecord(
         currentId,
-        user?.name || 'Verification Officer',
-        user?.role || 'VERIFICATION_OFFICER',
+        user?.name || 'Land Record Officer',
+        user?.role || 'LAND_RECORD_OFFICER',
         'Approved after side-by-side document verification.'
       );
       showAlert(`✓ Record #${currentId} successfully VERIFIED and published to Central Land Registry.`);
@@ -204,11 +206,11 @@ export const VerificationPage: React.FC<{ targetRecordId?: string }> = ({ target
     try {
       await rejectRecord(
         selectedRecord.id,
-        user?.name || 'Verification Officer',
-        user?.role || 'VERIFICATION_OFFICER',
+        user?.name || 'Land Record Officer',
+        user?.role || 'LAND_RECORD_OFFICER',
         'Rejected due to data mismatch / legibility failure.'
       );
-      showAlert(`Record #${selectedRecord.id} marked as REJECTED in database. Uploading officer notified.`);
+      showAlert(`Record #${selectedRecord.id} marked as REJECTED in database.`);
       setEditedFields({});
     } catch (err: any) {
       showAlert(`❌ Database rejection failed for Record #${selectedRecord.id}: ${err.message || 'Database error'}`);
@@ -220,11 +222,11 @@ export const VerificationPage: React.FC<{ targetRecordId?: string }> = ({ target
     try {
       await sendBackRecord(
         selectedRecord.id,
-        user?.name || 'Verification Officer',
-        user?.role || 'VERIFICATION_OFFICER',
-        'Returned to Land Record Officer for rescan and re-extraction.'
+        user?.name || 'Land Record Officer',
+        user?.role || 'LAND_RECORD_OFFICER',
+        'Returned for rescan and re-extraction.'
       );
-      showAlert(`Record #${selectedRecord.id} SENT BACK to Land Record Officer for rescan.`);
+      showAlert(`Record #${selectedRecord.id} flagged for rescan.`);
       setEditedFields({});
     } catch (err: any) {
       showAlert(`❌ Database error sending back Record #${selectedRecord.id}: ${err.message || 'Database error'}`);
@@ -236,8 +238,8 @@ export const VerificationPage: React.FC<{ targetRecordId?: string }> = ({ target
     updateRecordFields(
       selectedRecord.id,
       editedFields,
-      user?.name || 'Verification Officer',
-      user?.role || 'VERIFICATION_OFFICER',
+      user?.name || 'Land Record Officer',
+      user?.role || 'LAND_RECORD_OFFICER',
       correctionReason || 'Officer manual correction during side-by-side verification.'
     );
     showAlert(`✓ ${Object.keys(editedFields).length} field correction(s) saved to Record #${selectedRecord.id}. Audit log updated.`);
@@ -287,13 +289,13 @@ export const VerificationPage: React.FC<{ targetRecordId?: string }> = ({ target
       {/* Header */}
       <div className="gov-card p-4 rounded border border-slate-300 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Verification Officer Audit Desk</h1>
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight">{t('verification.title')}</h1>
           <p className="text-xs text-slate-600 mt-0.5">
-            Side-by-side document review · OCR confidence scoring · Rule-based anomaly verification
+            {t('verification.subtitle')}
           </p>
         </div>
         <div className="flex items-center gap-2 text-xs">
-          <span className="gov-badge gov-badge-warning">⚠ {pendingRecords.length} Pending Verification</span>
+          <span className="gov-badge gov-badge-warning">⚠ {pendingRecords.length} {t('verification.pendingCount')}</span>
         </div>
       </div>
 
@@ -305,10 +307,10 @@ export const VerificationPage: React.FC<{ targetRecordId?: string }> = ({ target
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 min-w-0">
 
         {/* LEFT COLUMN: Record queue */}
-        <div className="lg:col-span-3 gov-card p-3 rounded border border-slate-300 bg-white space-y-2">
+        <div className="lg:col-span-3 min-w-0 gov-card p-3 rounded border border-slate-300 bg-white space-y-2">
           <div className="flex border-b border-slate-200 pb-2 gap-1 text-[11px] font-bold">
             <button
               onClick={() => setQueueTab('pending')}
@@ -318,7 +320,7 @@ export const VerificationPage: React.FC<{ targetRecordId?: string }> = ({ target
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
-              Pending ({pendingRecords.length})
+              {t('common.pending')} ({pendingRecords.length})
             </button>
             <button
               onClick={() => setQueueTab('verified')}
@@ -328,7 +330,7 @@ export const VerificationPage: React.FC<{ targetRecordId?: string }> = ({ target
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
-              Verified ({verifiedRecords.length})
+              {t('common.verified')} ({verifiedRecords.length})
             </button>
           </div>
 
@@ -372,7 +374,7 @@ export const VerificationPage: React.FC<{ targetRecordId?: string }> = ({ target
 
         {/* RIGHT: Main verification workspace */}
         {activeRecord ? (
-          <div className="lg:col-span-9 space-y-3">
+          <div className="lg:col-span-9 min-w-0 space-y-3">
             {/* Record ID + overall confidence bar */}
             <div className="gov-card p-3 rounded border border-slate-300 bg-white flex flex-wrap items-center justify-between gap-2">
               <div>
@@ -402,10 +404,10 @@ export const VerificationPage: React.FC<{ targetRecordId?: string }> = ({ target
             {/* Side-by-side layout */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* LEFT: Original Document */}
-              <div className="gov-card p-3 rounded border border-slate-300 bg-white space-y-2">
+              <div className="gov-card p-3 rounded border border-slate-300 bg-white space-y-2 min-w-0">
                 <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
                   <Eye className="w-3.5 h-3.5 text-[#064E3B]" />
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">Original Scanned Document</h3>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">{t('verification.documentPreview')}</h3>
                   <span className="ml-auto text-[10px] text-slate-500 font-mono">
                     {activeRecord.documentLanguage || 'HINDI'}
                   </span>
@@ -414,14 +416,14 @@ export const VerificationPage: React.FC<{ targetRecordId?: string }> = ({ target
               </div>
 
               {/* RIGHT: Extracted Data Tabs */}
-              <div className="gov-card p-3 rounded border border-slate-300 bg-white">
+              <div className="gov-card p-3 rounded border border-slate-300 bg-white min-w-0">
                 {/* Tabs */}
                 <div className="flex border-b border-slate-200 mb-3 -mx-3 px-3 gap-0 overflow-x-auto">
                   {[
-                    { id: 'fields' as const, label: 'Extracted Fields', icon: Edit3 },
-                    { id: 'validation' as const, label: 'Validation Rules', icon: Shield },
-                    { id: 'anomaly' as const, label: 'Anomalies & Duplicates', icon: AlertTriangle },
-                    { id: 'history' as const, label: 'Audit Trail', icon: Copy },
+                    { id: 'fields' as const, label: t('verification.extractedFieldsReview'), icon: Edit3 },
+                    { id: 'validation' as const, label: t('verification.ruleValidation'), icon: Shield },
+                    { id: 'anomaly' as const, label: t('verification.riskScore'), icon: AlertTriangle },
+                    { id: 'history' as const, label: t('dashboard.auditTrail'), icon: Copy },
                   ].map(tab => {
                     const Icon = tab.icon;
                     return (
@@ -458,6 +460,7 @@ export const VerificationPage: React.FC<{ targetRecordId?: string }> = ({ target
                             <input
                               type="text"
                               value={currentVal}
+                              placeholder="Not detected (Requires verification)"
                               onChange={e => handleFieldEdit(field.fieldName, e.target.value)}
                               className={`flex-1 min-w-0 bg-white border rounded px-2 py-0.5 text-xs font-medium focus:outline-none focus:border-[#064E3B] ${
                                 isEdited ? 'border-blue-500 bg-blue-50/50 font-bold text-blue-900' : 'border-slate-300'
@@ -483,7 +486,7 @@ export const VerificationPage: React.FC<{ targetRecordId?: string }> = ({ target
                           onClick={handleSaveCorrections}
                           className="w-full gov-btn-secondary py-1.5 text-xs font-bold text-blue-800 border-blue-300 flex items-center justify-center gap-1"
                         >
-                          <CheckCircle className="w-3.5 h-3.5" /> Save {Object.keys(editedFields).length} Field Correction(s)
+                          <CheckCircle className="w-3.5 h-3.5" /> {t('verification.saveCorrections')} ({Object.keys(editedFields).length})
                         </button>
                       </div>
                     )}
@@ -529,7 +532,7 @@ export const VerificationPage: React.FC<{ targetRecordId?: string }> = ({ target
                       'border-emerald-300 bg-emerald-50'
                     }`}>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="font-bold text-slate-900">Document Risk Score</span>
+                        <span className="font-bold text-slate-900">{t('verification.riskScore')}</span>
                         <span className={`text-2xl font-bold ${
                           (activeRecord.riskScore ?? 0) >= 70 ? 'text-red-700' :
                           (activeRecord.riskScore ?? 0) >= 40 ? 'text-amber-700' : 'text-emerald-700'
@@ -626,14 +629,14 @@ export const VerificationPage: React.FC<{ targetRecordId?: string }> = ({ target
                   className="gov-btn-secondary py-1.5 px-3 text-xs flex items-center gap-1 text-amber-800 border-amber-300 disabled:opacity-50"
                   title="Send back to Land Record Officer for rescan"
                 >
-                  <RotateCcw className="w-3.5 h-3.5" /> Send Back
+                  <RotateCcw className="w-3.5 h-3.5" /> {t('verification.sendBack')}
                 </button>
                 <button
                   onClick={handleReject}
                   disabled={activeRecord.status === 'REJECTED'}
                   className="gov-btn-secondary py-1.5 px-3 text-xs flex items-center gap-1 text-red-700 border-red-300 disabled:opacity-50"
                 >
-                  <X className="w-3.5 h-3.5" /> Reject Record
+                  <X className="w-3.5 h-3.5" /> {t('verification.rejectRecord')}
                 </button>
                 <button
                   onClick={handleApprove}
@@ -641,14 +644,14 @@ export const VerificationPage: React.FC<{ targetRecordId?: string }> = ({ target
                   className="gov-btn-primary py-1.5 px-4 text-xs flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed font-bold"
                 >
                   <Check className="w-3.5 h-3.5" />
-                  {activeRecord.status === 'VERIFIED' ? 'Already Verified' : 'Approve & Publish Record'}
+                  {activeRecord.status === 'VERIFIED' ? t('common.verified') : t('verification.approveRecord')}
                 </button>
               </div>
             </div>
           </div>
         ) : (
           <div className="lg:col-span-9 gov-card rounded border border-slate-300 flex items-center justify-center h-64 text-slate-400 text-xs bg-white">
-            Select a record from the queue to begin verification.
+            {t('verification.selectRecord')}
           </div>
         )}
       </div>

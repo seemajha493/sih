@@ -47,19 +47,6 @@ export const getRolePermissions = (role?: UserRole | null): PermissionCheck => {
       return {
         canUploadDocuments: true,
         canEditRecords: true,
-        canVerifyRecords: false,
-        canManageUsers: false,
-        canViewAuditLogs: true,
-        canViewAnalytics: true,
-        canAccessAllRecords: true,
-        canSearchPublicRecords: true,
-        canViewOfficerDirectory: true,
-      };
-
-    case 'VERIFICATION_OFFICER':
-      return {
-        canUploadDocuments: false,
-        canEditRecords: false,
         canVerifyRecords: true,
         canManageUsers: false,
         canViewAuditLogs: true,

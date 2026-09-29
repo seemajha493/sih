@@ -10,17 +10,34 @@ export type RecordStatus =
 export type ValidationSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type ValidationResultStatus = 'PASS' | 'FAIL' | 'WARNING';
 
+export interface BoundingBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface ExtractedField {
   fieldName: string;
   fieldLabel: string;
   value: string;
-  confidence: number; // 0–100
+  confidence: number; // 0–100 overall field confidence
+  extractionConfidence?: number; // field pattern / extraction score
   isEdited?: boolean;
   isApproved?: boolean;
   isRejected?: boolean;
-  originalValue?: string; // before officer edit
-  language?: 'HINDI' | 'ENGLISH';
+  originalValue?: string; // native extracted script value
+  transliteratedValue?: string; // optional English transliteration
+  isRtl?: boolean; // true for Urdu / Arabic text
+  language?: 'HINDI' | 'ENGLISH' | 'URDU' | 'BENGALI' | 'ASSAMESE' | 'MARATHI' | string;
+  validationStatus?: 'VALID' | 'WARNING' | 'ANOMALY' | 'UNRESOLVED';
+  evidence?: {
+    pageNumber?: number;
+    text?: string;
+    boundingBox?: BoundingBox;
+  };
 }
+
 
 export interface ValidationResult {
   ruleId: string;
@@ -98,6 +115,13 @@ export interface LandRecord {
   validationResults?: ValidationResult[];
   mutations?: MutationRecord[];
   associatedUserId?: string;
+  rawOcrText?: string;
+  ocrBlocks?: {
+    pageNumber: number;
+    text: string;
+    confidence: number;
+    boundingBox?: BoundingBox;
+  }[];
 }
 
 export interface DashboardStats {

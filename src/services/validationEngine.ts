@@ -49,7 +49,7 @@ export class ValidationEngine {
           status: 'FAIL',
           severity: 'HIGH',
           description: `⚠️ Required field missing: ${req.label}`,
-          suggestedAction: `Manual entry required by Verification Officer.`,
+          suggestedAction: `Manual entry required by Land Record Officer.`,
           fieldName: req.key,
         });
         anomalyFlags.push({
@@ -102,8 +102,8 @@ export class ValidationEngine {
       }
     }
 
-    // 3. Low Confidence Field Check
-    const lowConfFields = ocrResult.extractedFields.filter(f => f.confidence < 75);
+    // 3. Low Confidence Field Check (only for detected non-empty fields)
+    const lowConfFields = ocrResult.extractedFields.filter(f => f.value && f.value.trim().length > 0 && f.confidence > 0 && f.confidence < 75);
     if (lowConfFields.length > 0) {
       lowConfFields.forEach(f => {
         results.push({
