@@ -101,7 +101,7 @@ export interface LandRecord {
   verifiedAt?: string;
   verificationRemarks?: string;
   documentUrl?: string;
-  documentLanguage?: 'HINDI' | 'ENGLISH' | 'BENGALI' | 'ODIA';
+  documentLanguage?: 'HINDI' | 'ENGLISH' | 'BENGALI' | 'ODIA' | 'URDU' | 'MARATHI' | 'PUNJABI' | 'GUJARATI' | 'TAMIL' | 'TELUGU' | 'KANNADA' | 'MALAYALAM' | 'ASSAMESE' | string;
   flagReason?: string;
   mutationNo?: string;
   mutationDate?: string;
